@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Dispatch, FormEvent, SetStateAction } from 'react'
-import { Archive, ChevronDown, CircleCheck, Gauge, HardDrive, Pencil, Play, RefreshCw, Save, Search, ShieldCheck, Square, Trash2, X } from 'lucide-react'
+import type { Dispatch, FormEvent, KeyboardEvent, SetStateAction } from 'react'
+import { Archive, ChevronDown, CircleCheck, Gauge, HardDrive, Play, RefreshCw, Search, ShieldCheck, Square, Trash2 } from 'lucide-react'
 import { api, type ApiHeaders } from '../api/client'
 import { ArtifactLinks } from '../components/ArtifactLinks'
 import { MetricCard } from '../components/MetricCard'
@@ -13,6 +13,7 @@ import { bytes, gigabytes } from '../domain/defaults'
 import type { MonitoringDto, PrecheckDto, PrecheckRunDto, RootDto, RunDto, StorageRootScanProgressDto } from '../domain/types'
 
 type RootOverride = { retentionDays: string; deletionMode: string; outputMode: string; optimizedRootOverride: string; archiveRootOverride: string }
+type RootDraft = Pick<RootDto, 'label' | 'path' | 'optimizedRootOverride' | 'archiveRootOverride'>
 
 export function DashboardPage({
   headers,
@@ -45,10 +46,8 @@ export function DashboardPage({
 }) {
   const [targetRootIds, setTargetRootIds] = useState<string[]>([])
   const [rootPath, setRootPath] = useState('')
-  const [editingRootId, setEditingRootId] = useState<string | null>(null)
-  const [rootDrafts, setRootDrafts] = useState<
-    Record<string, Pick<RootDto, 'label' | 'path' | 'optimizedRootOverride' | 'archiveRootOverride'>>
-  >({})
+  const [rootDrafts, setRootDrafts] = useState<Record<string, RootDraft>>({})
+  const [untrackableRootIds, setUntrackableRootIds] = useState<string[]>([])
   const [expandedRootIds, setExpandedRootIds] = useState<string[]>([])
   const [overrides, setOverrides] = useState<Record<string, RootOverride>>({})
   const [selectedRootId, setSelectedRootId] = useState('')
@@ -79,13 +78,10 @@ export function DashboardPage({
   )
   const activeRootScans = rootScans.filter((scan) => ['QUEUED', 'RUNNING'].includes(scan.status))
   const visibleRunningPrecheck = precheck?.status === 'RUNNING' ? precheck : runningPrechecks[0]
-  const selectedRootsScanned = effectiveRootIds.every((id) => roots.find((root) => root.id === id)?.scanStatus === 'SCANNED')
   const canStartOptimization =
     Boolean(precheck) &&
     precheck?.status === 'COMPLETED' &&
-    precheck.selectedFiles > 0 &&
-    selectedRootsScanned &&
-    effectiveRootIds.every((id) => precheck.roots.some((root) => root.id === id))
+    precheck.selectedFiles > 0
 
   useEffect(() => {
     if (!activeRootScans.length) return undefined
@@ -141,6 +137,59 @@ export function DashboardPage({
     setRoots((current) => current.map((item) => (item.id === updated.id ? updated : item)))
   }
 
+  function rootToDraft(root: RootDto): RootDraft {
+    return {
+      label: root.label,
+      path: root.path,
+      optimizedRootOverride: root.optimizedRootOverride,
+      archiveRootOverride: root.archiveRootOverride,
+    }
+  }
+
+  function draftFor(root: RootDto): RootDraft {
+    return rootDrafts[root.id] ?? rootToDraft(root)
+  }
+
+  function setRootDraft(root: RootDto, patch: Partial<RootDraft>) {
+    setRootDrafts((current) => ({ ...current, [root.id]: { ...(current[root.id] ?? rootToDraft(root)), ...patch } }))
+  }
+
+  async function persistRoot(root: RootDto, patch: Partial<RootDraft>) {
+    const next = { ...root, ...draftFor(root), ...patch }
+    next.label = next.label.trim()
+    next.path = next.path.trim()
+    next.optimizedRootOverride = next.optimizedRootOverride?.trim() || null
+    next.archiveRootOverride = next.archiveRootOverride?.trim() || null
+    if (!next.label || !next.path) return
+    const changed =
+      next.label !== root.label ||
+      next.path !== root.path ||
+      next.optimizedRootOverride !== root.optimizedRootOverride ||
+      next.archiveRootOverride !== root.archiveRootOverride
+    if (!changed) return
+    const updated = await api.updateRoot(next, headers)
+    setRoots((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+    setRootDrafts((current) => ({
+      ...current,
+      [updated.id]: {
+        label: updated.label,
+        path: updated.path,
+        optimizedRootOverride: updated.optimizedRootOverride,
+        archiveRootOverride: updated.archiveRootOverride,
+      },
+    }))
+    if (updated.path !== root.path) {
+      setPrecheck(null)
+      await refresh()
+    }
+    setMessage('Storage root saved.')
+  }
+
+  function commitRootOnEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== 'Enter') return
+    event.currentTarget.blur()
+  }
+
   async function loadScanHistory(root: RootDto) {
     const history = await api.rootScanHistory(root.id, headers)
     setScanHistoryByRoot((current) => ({ ...current, [root.id]: history }))
@@ -152,42 +201,25 @@ export function DashboardPage({
     setRootScans((current) => current.filter((scan) => scan.rootId !== rootId))
   }
 
-  function startRootEdit(root: RootDto) {
-    setEditingRootId(root.id)
-    setRootDrafts((current) => ({
-      ...current,
-      [root.id]: {
-        label: root.label,
-        path: root.path,
-        optimizedRootOverride: root.optimizedRootOverride,
-        archiveRootOverride: root.archiveRootOverride,
-      },
-    }))
-  }
-
-  async function saveRoot(event: FormEvent<HTMLFormElement>, root: RootDto) {
-    event.preventDefault()
-    if (!event.currentTarget.checkValidity()) {
-      event.currentTarget.classList.add('validated')
-      event.currentTarget.reportValidity()
-      return
-    }
-    const draft = rootDrafts[root.id]
-    const updated = await api.updateRoot({ ...root, ...draft }, headers)
-    setRoots((current) => current.map((item) => (item.id === updated.id ? updated : item)))
-    setEditingRootId(null)
-    await refresh()
-  }
-
   async function deleteRoot(root: RootDto) {
-    if (!window.confirm(`Delete storage root "${root.label}"?`)) return
     const response = await api.deleteRoot(root.id, headers)
     if (!response.ok) {
-      setMessage('This root has tracked file history. Disable it to stop future scans; delete is only available before files are tracked.')
+      setUntrackableRootIds((current) => (current.includes(root.id) ? current : [...current, root.id]))
+      setMessage(`"${root.label}" has tracked file history. Use Untrack & delete to remove it from tracking and delete the root.`)
       return
     }
     setRoots((current) => current.filter((item) => item.id !== root.id))
     setTargetRootIds((current) => current.filter((id) => id !== root.id))
+    setUntrackableRootIds((current) => current.filter((id) => id !== root.id))
+    await refresh()
+  }
+
+  async function untrackAndDeleteRoot(root: RootDto) {
+    const result = await api.untrackAndDeleteRoot(root.id, headers)
+    setRoots((current) => current.filter((item) => item.id !== root.id))
+    setTargetRootIds((current) => current.filter((id) => id !== root.id))
+    setUntrackableRootIds((current) => current.filter((id) => id !== root.id))
+    setMessage(`Untracked ${result.untrackedMediaFiles} files and deleted "${root.label}".`)
     await refresh()
   }
 
@@ -291,6 +323,17 @@ export function DashboardPage({
     await refresh()
   }
 
+  async function deleteRun(run: RunDto) {
+    if (!window.confirm(`Delete run ${run.id.slice(0, 8)} from history? Report/log artifacts and this run's compression history will be removed.`)) return
+    try {
+      await api.deleteRun(run.id, headers)
+      setMessage('Run deleted and file compression history recalculated.')
+      await refresh()
+    } catch {
+      setMessage('Could not delete that run. Cancel active runs before deleting them.')
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -358,12 +401,7 @@ export function DashboardPage({
           {roots.map((root) => {
             const expanded = expandedRootIds.includes(root.id)
             const override = overrides[root.id] ?? { retentionDays: '', deletionMode: '', outputMode: '', optimizedRootOverride: '', archiveRootOverride: '' }
-            const draft = rootDrafts[root.id] ?? {
-              label: root.label,
-              path: root.path,
-              optimizedRootOverride: root.optimizedRootOverride,
-              archiveRootOverride: root.archiveRootOverride,
-            }
+            const draft = draftFor(root)
             const disabledByParent = hasSelectedAncestor(root, roots, effectiveRootIds)
             return (
               <div key={root.id} className="root-row">
@@ -402,12 +440,14 @@ export function DashboardPage({
                   <button type="button" onClick={() => void loadScanHistory(root)}>
                     History
                   </button>
-                  <button type="button" onClick={() => startRootEdit(root)}>
-                    <Pencil size={15} /> Edit
-                  </button>
                   <button type="button" onClick={() => void deleteRoot(root)}>
                     <Trash2 size={15} /> Delete
                   </button>
+                  {untrackableRootIds.includes(root.id) && (
+                    <button type="button" onClick={() => void untrackAndDeleteRoot(root)}>
+                      <Trash2 size={15} /> Untrack & delete
+                    </button>
+                  )}
                   <button type="button" onClick={() => setExpandedRootIds((current) => (expanded ? current.filter((id) => id !== root.id) : [...current, root.id]))}>
                     <ChevronDown size={15} /> {expanded ? 'Hide' : 'Details'}
                   </button>
@@ -418,106 +458,83 @@ export function DashboardPage({
                       <strong>Active policies</strong>
                       <p>{root.activePolicies.length ? root.activePolicies.map((policy) => policy.path).join(', ') : 'Default settings only'}</p>
                     </div>
-                    {editingRootId === root.id && (
-                      <form className="root-edit-grid" onSubmit={(event) => void saveRoot(event, root)} noValidate>
+                    <div className="root-field-grid">
+                      <label>
+                        Name
                         <input
                           value={draft.label}
-                          onChange={(e) =>
-                            setRootDrafts((current) => ({
-                              ...current,
-                              [root.id]: { ...draft, label: e.target.value },
-                            }))
-                          }
+                          onChange={(e) => setRootDraft(root, { label: e.target.value })}
+                          onBlur={() => void persistRoot(root, { label: draft.label })}
+                          onKeyDown={commitRootOnEnter}
                           aria-label="Root label"
                           required
                         />
+                      </label>
+                      <label>
+                        Path
                         <span className="input-with-action">
                           <input
                             value={draft.path}
-                            onChange={(e) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, path: e.target.value },
-                              }))
-                            }
+                            onChange={(e) => setRootDraft(root, { path: e.target.value })}
+                            onBlur={() => void persistRoot(root, { path: draft.path })}
+                            onKeyDown={commitRootOnEnter}
                             aria-label="Root path"
                             required
                           />
                           <PathPickerButton
                             headers={headers}
                             initialPath={draft.path}
-                            onPick={(paths) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, path: paths[0] ?? root.path },
-                              }))
-                            }
+                            onPick={(paths) => {
+                              const path = paths[0] ?? root.path
+                              setRootDraft(root, { path })
+                              void persistRoot(root, { path })
+                            }}
                           />
                         </span>
+                      </label>
+                      <label>
+                        Custom optimized results folder
                         <span className="input-with-action">
                           <input
                             value={draft.optimizedRootOverride ?? ''}
-                            onChange={(e) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, optimizedRootOverride: e.target.value || null },
-                              }))
-                            }
+                            onChange={(e) => setRootDraft(root, { optimizedRootOverride: e.target.value || null })}
+                            onBlur={() => void persistRoot(root, { optimizedRootOverride: draft.optimizedRootOverride })}
+                            onKeyDown={commitRootOnEnter}
                             aria-label="Optimized target folder override"
-                            placeholder="Custom optimized results folder"
+                            placeholder="Default optimized root"
                           />
                           <PathPickerButton
                             headers={headers}
                             initialPath={draft.optimizedRootOverride ?? ''}
-                            onPick={(paths) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, optimizedRootOverride: paths[0] ?? null },
-                              }))
-                            }
+                            onPick={(paths) => {
+                              const optimizedRootOverride = paths[0] ?? null
+                              setRootDraft(root, { optimizedRootOverride })
+                              void persistRoot(root, { optimizedRootOverride })
+                            }}
                           />
                         </span>
+                      </label>
+                      <label>
+                        Custom archive folder
                         <span className="input-with-action">
                           <input
                             value={draft.archiveRootOverride ?? ''}
-                            onChange={(e) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, archiveRootOverride: e.target.value || null },
-                              }))
-                            }
+                            onChange={(e) => setRootDraft(root, { archiveRootOverride: e.target.value || null })}
+                            onBlur={() => void persistRoot(root, { archiveRootOverride: draft.archiveRootOverride })}
+                            onKeyDown={commitRootOnEnter}
                             aria-label="Archive target folder override"
-                            placeholder="Custom archive folder"
+                            placeholder="Default archive root"
                           />
                           <PathPickerButton
                             headers={headers}
                             initialPath={draft.archiveRootOverride ?? ''}
-                            onPick={(paths) =>
-                              setRootDrafts((current) => ({
-                                ...current,
-                                [root.id]: { ...draft, archiveRootOverride: paths[0] ?? null },
-                              }))
-                            }
+                            onPick={(paths) => {
+                              const archiveRootOverride = paths[0] ?? null
+                              setRootDraft(root, { archiveRootOverride })
+                              void persistRoot(root, { archiveRootOverride })
+                            }}
                           />
                         </span>
-                        <div className="button-row">
-                          <button type="submit">
-                            <Save size={15} /> Save
-                          </button>
-                          <button type="button" onClick={() => setEditingRootId(null)}>
-                            <X size={15} /> Cancel
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                    <div className="form-grid">
-                      <label>
-                        Custom optimized results folder
-                        <small>{root.optimizedRootOverride || 'Default optimized root plus this storage root namespace'}</small>
-                      </label>
-                      <label>
-                        Custom archive folder
-                        <small>{root.archiveRootOverride || 'Default archive root plus this storage root namespace'}</small>
                       </label>
                       <label className="check-row">
                         <input
@@ -527,6 +544,8 @@ export function DashboardPage({
                         />
                         <span>Automatic rescanning</span>
                       </label>
+                    </div>
+                    <div className="form-grid">
                       <label>
                         Run retention override
                         <select
@@ -564,7 +583,7 @@ export function DashboardPage({
                         </select>
                       </label>
                       <label>
-                        Custom optimized results folder
+                        One-run optimized results folder
                         <span className="input-with-action">
                           <input
                             value={override.optimizedRootOverride}
@@ -579,7 +598,7 @@ export function DashboardPage({
                         </span>
                       </label>
                       <label>
-                        Custom archive folder
+                        One-run archive folder
                         <span className="input-with-action">
                           <input
                             value={override.archiveRootOverride}
@@ -603,6 +622,7 @@ export function DashboardPage({
                             <span>{scan.id.slice(0, 8)}</span>
                             <small>{scan.status}</small>
                             <small>{scan.totalFiles} files</small>
+                            <ArtifactLinks reportUrl={scan.reportUrl} logUrl={scan.logUrl} />
                           </div>
                         ))}
                       </div>
@@ -821,6 +841,11 @@ export function DashboardPage({
               {['QUEUED', 'RUNNING'].includes(run.status) && (
                 <button type="button" onClick={() => void cancelRun(run)}>
                   <Square size={15} /> Cancel
+                </button>
+              )}
+              {!['QUEUED', 'RUNNING'].includes(run.status) && (
+                <button type="button" onClick={() => void deleteRun(run)}>
+                  <Trash2 size={15} /> Delete
                 </button>
               )}
             </div>

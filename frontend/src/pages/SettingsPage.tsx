@@ -22,12 +22,14 @@ export function SettingsPage({
   onSubmit,
   headers,
   onPasswordMessage,
+  onDataReset,
 }: {
   settings: SettingsDto
   setSettings: (settings: SettingsDto) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   headers: ApiHeaders
   onPasswordMessage: (message: string) => void
+  onDataReset: () => Promise<void>
 }) {
   async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -46,6 +48,15 @@ export function SettingsPage({
     )
     onPasswordMessage(response.ok ? 'Password changed.' : 'Could not change password.')
     if (response.ok) event.currentTarget.reset()
+  }
+
+  async function clearAllData() {
+    const confirmation = 'CLEAR ALL DATA'
+    const typed = window.prompt(`Type ${confirmation} to reset app state, run history, scan history, logs, roots, policies, automations, and tracked files. Examples will be restored.`)
+    if (typed !== confirmation) return
+    const result = await api.clearAllData(headers)
+    onPasswordMessage(`Cleared ${result.deletedRuns} runs, ${result.deletedPrechecks} scans, and ${result.deletedMediaFiles} tracked files. Examples restored.`)
+    await onDataReset()
   }
 
   return (
@@ -70,6 +81,15 @@ export function SettingsPage({
             <Save size={16} /> Change password
           </button>
         </form>
+      </section>
+      <section className="settings-card password-card danger-zone">
+        <h2>
+          <Trash2 size={18} /> Clear all data
+        </h2>
+        <p>Reset application state after setup. This clears histories, report/log artifacts, roots, policies, automations, and tracked database rows while restoring the built-in examples.</p>
+        <button type="button" onClick={() => void clearAllData()}>
+          <Trash2 size={16} /> Clear all data
+        </button>
       </section>
     </>
   )

@@ -10,6 +10,9 @@ data class PathValidationResponse(val path: String, val exists: Boolean, val rea
 data class TdarrStatusResponse(val reachable: Boolean, val status: String?, val version: String?)
 data class NativePickerRequest(val multiple: Boolean = true, val initialPath: String? = null)
 data class NativePickerResponse(val paths: List<String>, val cancelled: Boolean, val message: String? = null)
+data class DeleteRunResponse(val deletedRunId: UUID, val deletedItems: Int, val recalculatedMediaFiles: Int)
+data class DataResetResponse(val deletedRuns: Long, val deletedPrechecks: Long, val deletedMediaFiles: Long, val examplesRestored: Boolean)
+data class UntrackStorageRootResponse(val deletedRootId: UUID, val untrackedMediaFiles: Int, val deletedPrecheckItems: Int, val clearedRunItemLinks: Int)
 
 data class StorageRootRequest(
     @field:NotBlank val label: String,

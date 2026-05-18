@@ -62,7 +62,10 @@ export function AutomationPage({
 
   return (
     <>
-      <PageHeader title="Automation" description="Continuously scan selected roots and compress only newly discovered files." />
+      <PageHeader
+        title="Automation"
+        description="Scheduled automations scan roots and start optimization for newly discovered files; automatic rescanning only refreshes inventory."
+      />
 
       <section className="panel">
         <form onSubmit={saveRule} noValidate>

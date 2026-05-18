@@ -20,6 +20,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Properties
 import java.util.UUID
@@ -79,11 +81,14 @@ class ReportService(
             )
         }
         val body = summaryCards(
+            "Started" to timestamp(precheck.startedAt),
+            "Completed" to timestamp(precheck.completedAt),
+            "Status" to precheck.status.name,
             "Files scanned" to precheck.totalFiles.toString(),
             "Current size" to bytes(precheck.totalBytes),
             "Estimated output" to bytes(precheck.estimatedOutputBytes),
             "Estimated savings" to bytes(precheck.estimatedSavingsBytes),
-        ) + """
+        ) + failureSummary(rows) + """
             <section class="band">
               <h2>Selected roots</h2>
               <div class="pill-row">${roots.joinToString("") { "<span>${esc(it.label)} - ${esc(it.path)}</span>" }}</div>
@@ -131,7 +136,11 @@ class ReportService(
             shell(
                 "Precheck failed",
                 "Archive Sentinel",
-                """<section class="band danger"><h2>Precheck failed</h2><p>${esc(precheck.errorMessage)}</p></section>""",
+                summaryCards(
+                    "Started" to timestamp(precheck.startedAt),
+                    "Completed" to timestamp(precheck.completedAt),
+                    "Status" to precheck.status.name,
+                ) + """<section class="band danger"><h2>Failure reason</h2><p>${esc(precheck.errorMessage)}</p></section>""",
             ),
         )
         return report
@@ -163,13 +172,15 @@ class ReportService(
             )
         }
         val body = summaryCards(
+            "Started" to timestamp(run.startedAt),
+            "Completed" to timestamp(run.completedAt),
             "Run status" to run.status.name,
             "Progress" to "${run.completedFiles}/${run.totalFiles}",
             "Input" to bytes(run.totalInputBytes),
             "Output" to bytes(run.totalOutputBytes),
             "Saved" to bytes(rows.sumOf { it.savedBytes }),
             "Failures" to run.failedFiles.toString(),
-        ) + """
+        ) + failureSummary(rows) + """
             <section class="band">
               <h2>Run file tree</h2>
               <p class="muted">Grouped by storage root. Open a root, then folders underneath it, to inspect archive links, optimized outputs, savings, and failures.</p>
@@ -321,6 +332,17 @@ class ReportService(
     private fun reportSearch(): String =
         """<div class="report-tools"><input id="reportSearch" placeholder="Search filenames, roots, paths, or statuses" /></div>"""
 
+    private fun failureSummary(rows: List<ReportFileRow>): String {
+        val failures = rows.filter { !it.failure.isNullOrBlank() }
+        if (failures.isEmpty()) return ""
+        return """
+            <section class="band danger">
+              <h2>Failure reasons</h2>
+              <ul>${failures.joinToString("") { "<li><strong>${esc(it.displayPath)}</strong><small>${esc(it.failure)}</small></li>" }}</ul>
+            </section>
+        """.trimIndent()
+    }
+
     private fun summaryCards(vararg cards: Pair<String, String>): String =
         """<section class="cards">${cards.joinToString("") { "<article><span>${esc(it.first)}</span><strong>${esc(it.second)}</strong></article>" }}</section>"""
 
@@ -340,11 +362,11 @@ class ReportService(
               header p { opacity: .82; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
               header h1 { margin-top: 8px; font-size: clamp(28px, 4vw, 48px); letter-spacing: 0; }
               main { padding: 22px clamp(14px, 3vw, 38px) 38px; display: grid; gap: 18px; }
-              .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+              .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
               article, .band, details { background: rgba(255,255,255,.94); border: 1px solid rgba(34,52,69,.12); border-radius: 8px; box-shadow: 0 14px 40px rgba(22,50,79,.08); }
-              article { padding: 16px; display: grid; gap: 8px; }
+              article { padding: 16px; display: grid; gap: 8px; min-width: 0; }
               article span { color: #596675; font-size: 13px; }
-              article strong { font-size: 24px; }
+              article strong { font-size: clamp(17px, 2.2vw, 24px); line-height: 1.25; overflow-wrap: anywhere; word-break: break-word; }
               .band { padding: 18px; }
               .band h2 { margin: 0 0 8px; }
               .muted { color: #66717e; margin-top: 0; }
@@ -361,6 +383,8 @@ class ReportService(
               th, td { padding: 10px 12px; border-top: 1px solid #edf1f4; text-align: left; vertical-align: top; }
               th { color: #5b6673; background: #f8fafb; font-weight: 700; cursor: pointer; }
               td small { display: block; margin-top: 4px; color: #a4422d; max-width: 70ch; }
+              li { margin: 8px 0; }
+              li small { display: block; margin-top: 3px; color: #a4422d; overflow-wrap: anywhere; }
               a { color: #145c9e; text-decoration: none; overflow-wrap: anywhere; }
               a:hover { text-decoration: underline; }
               .empty { margin: 0; color: #66717e; }
@@ -433,6 +457,9 @@ class ReportService(
 
     private fun gb(value: Long): String =
         "%.4f GB".format(value.coerceAtLeast(0) / 1024.0 / 1024.0 / 1024.0)
+
+    private fun timestamp(value: Instant?): String =
+        value?.let { DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault()).format(it) } ?: "Pending"
 
     private fun esc(value: Any?): String = HtmlUtils.htmlEscape(value?.toString().orEmpty())
 }

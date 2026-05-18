@@ -63,6 +63,9 @@ class StorageController(
     @DeleteMapping("/storage-roots/{id}")
     fun deleteRoot(@PathVariable id: UUID) = storageService.deleteRoot(id)
 
+    @PostMapping("/storage-roots/{id}/untrack-delete")
+    fun untrackAndDeleteRoot(@PathVariable id: UUID): UntrackStorageRootResponse = storageService.untrackAndDeleteRoot(id)
+
     @PostMapping("/storage-roots/{id}/scan")
     fun scanRoot(@PathVariable id: UUID): StorageRootScanProgressResponse = scanService.startRootInventoryScan(id)
 

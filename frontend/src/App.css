@@ -403,7 +403,7 @@ nav button.active {
 
 .root-scan-history > div {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: auto auto auto minmax(150px, auto);
   justify-content: start;
   gap: 10px;
 }
@@ -413,6 +413,14 @@ nav button.active {
   border: 1px solid #d7e0e8;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.danger-zone {
+  border-color: #e5b7a9;
+  background: #fff8f5;
+  padding: 18px;
+  display: grid;
+  gap: 10px;
 }
 
 .root-main,
@@ -433,9 +441,9 @@ nav button.active {
   background: #f8fafc;
 }
 
-.root-edit-grid {
+.root-field-grid {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
   gap: 10px;
   align-items: center;
 }
@@ -953,6 +961,7 @@ nav button.active {
   .metrics-grid,
   .form-grid,
   .form-grid.four,
+  .root-field-grid,
   .inline-form,
   .split-grid {
     grid-template-columns: 1fr;

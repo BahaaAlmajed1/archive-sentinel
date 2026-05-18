@@ -3,6 +3,8 @@ import type {
   AutomationDto,
   ArchiveRunDto,
   ArchiveRunTreeDto,
+  DataResetDto,
+  DeleteRunDto,
   MonitoringDto,
   NativePickerResponse,
   PageResponse,
@@ -14,6 +16,7 @@ import type {
   RunDto,
   SettingsDto,
   StorageRootScanProgressDto,
+  UntrackStorageRootDto,
 } from '../domain/types'
 
 export type ApiHeaders = Record<string, string>
@@ -57,6 +60,8 @@ export const api = {
   updateRoot: (root: RootDto, headers: ApiHeaders) =>
     fetchJson<RootDto>(`/api/storage-roots/${root.id}`, { method: 'PUT', headers, body: JSON.stringify(root) }),
   deleteRoot: (id: string, headers: ApiHeaders) => fetch(`/api/storage-roots/${id}`, { method: 'DELETE', headers }),
+  untrackAndDeleteRoot: (id: string, headers: ApiHeaders) =>
+    fetchJson<UntrackStorageRootDto>(`/api/storage-roots/${id}/untrack-delete`, { method: 'POST', headers }),
   policies: (headers: ApiHeaders) => fetchJson<PolicyDto[]>('/api/policies', { headers }),
   addPolicy: (policy: Omit<PolicyDto, 'id'>, headers: ApiHeaders) =>
     fetchJson<PolicyDto>('/api/policies', { method: 'POST', headers, body: JSON.stringify(policy) }),
@@ -107,6 +112,7 @@ export const api = {
   startRun: (body: { mediaFileIds?: string[]; precheckId?: string }, headers: ApiHeaders) =>
     fetchJson<RunDto>('/api/runs', { method: 'POST', headers, body: JSON.stringify(body) }),
   cancelRun: (id: string, headers: ApiHeaders) => fetchJson<RunDto>(`/api/runs/${id}/cancel`, { method: 'POST', headers }),
+  deleteRun: (id: string, headers: ApiHeaders) => fetchJson<DeleteRunDto>(`/api/runs/${id}`, { method: 'DELETE', headers }),
   runs: (headers: ApiHeaders, status = '', page = 0, size = 25, search = '') =>
     fetchJson<PageResponse<RunDto>>(
       `/api/runs?page=${page}&size=${size}${status ? `&status=${status}` : ''}${search ? `&search=${encodeURIComponent(search)}` : ''}`,
@@ -153,6 +159,7 @@ export const api = {
   changePassword: (body: { currentPassword: FormDataEntryValue | null; newPassword: FormDataEntryValue | null }, headers: ApiHeaders) =>
     fetch('/api/auth/change-password', { method: 'POST', headers, body: JSON.stringify(body) }),
   clearTdarrQueue: (headers: ApiHeaders) => fetchJson<{ clearedPaths: number }>('/api/tdarr/clear-queue', { method: 'POST', headers }),
+  clearAllData: (headers: ApiHeaders) => fetchJson<DataResetDto>('/api/system/clear-data', { method: 'POST', headers }),
   rootScans: (headers: ApiHeaders) => fetchJson<StorageRootScanProgressDto[]>('/api/storage-roots/scans', { headers }),
   scanRoot: (id: string, headers: ApiHeaders) => fetchJson<StorageRootScanProgressDto>(`/api/storage-roots/${id}/scan`, { method: 'POST', headers }),
   dismissRootScan: (id: string, headers: ApiHeaders) => fetch(`/api/storage-roots/scans/${id}`, { method: 'DELETE', headers }),

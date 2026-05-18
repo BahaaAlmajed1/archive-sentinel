@@ -3,6 +3,7 @@ package com.archivesentinel.api
 import com.archivesentinel.domain.MediaFileRepository
 import com.archivesentinel.domain.MediaStatus
 import com.archivesentinel.domain.RunStatus
+import com.archivesentinel.service.DataMaintenanceService
 import com.archivesentinel.service.OptimizationService
 import com.archivesentinel.service.ReportService
 import com.archivesentinel.service.ScanService
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -23,6 +25,7 @@ import java.util.UUID
 class WorkflowController(
     private val scanService: ScanService,
     private val optimizationService: OptimizationService,
+    private val dataMaintenanceService: DataMaintenanceService,
     private val mediaFileRepository: MediaFileRepository,
     private val reportService: ReportService,
 ) {
@@ -51,6 +54,9 @@ class WorkflowController(
     @PostMapping("/runs/{id}/cancel")
     fun cancelRun(@PathVariable id: UUID): RunResponse =
         optimizationService.cancelRun(id).toResponse(reportService, optimizationService.savedBytes(id))
+
+    @DeleteMapping("/runs/{id}")
+    fun deleteRun(@PathVariable id: UUID): DeleteRunResponse = dataMaintenanceService.deleteRun(id)
 
     @GetMapping("/precheck/{id}")
     fun precheckDetails(

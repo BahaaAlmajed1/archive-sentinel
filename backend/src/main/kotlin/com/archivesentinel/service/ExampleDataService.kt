@@ -21,6 +21,10 @@ class ExampleDataService(
     private val policyTargetRepository: PolicyTargetRepository,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {
+        seedExamples()
+    }
+
+    fun seedExamples() {
         val root = resolveExampleRoot() ?: return
         val rootPath = "runtime/examples/originals"
         val existingRoot = storageRootRepository.findByLabel("Examples")

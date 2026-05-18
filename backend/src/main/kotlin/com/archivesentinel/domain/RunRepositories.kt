@@ -34,6 +34,12 @@ interface OptimizationRunRepository : JpaRepository<OptimizationRun, UUID> {
 interface OptimizationRunItemRepository : JpaRepository<OptimizationRunItem, UUID> {
     fun findByRunId(runId: UUID): List<OptimizationRunItem>
     fun findByRunId(runId: UUID, pageable: Pageable): Page<OptimizationRunItem>
+    fun findByMediaFileId(mediaFileId: UUID): List<OptimizationRunItem>
+    fun deleteByRunId(runId: UUID): Long
+
+    @Modifying
+    @Query("update OptimizationRunItem i set i.mediaFileId = null where i.mediaFileId in :mediaFileIds")
+    fun clearMediaReferences(mediaFileIds: Collection<UUID>): Int
 
     @Query("select coalesce(sum(i.savedBytes), 0) from OptimizationRunItem i where i.runId = :runId")
     fun totalSavedBytesByRunId(runId: UUID): Long
@@ -79,6 +85,12 @@ interface PrecheckRunItemRepository : JpaRepository<PrecheckRunItem, UUID> {
     fun findByPrecheckRunId(precheckRunId: UUID): List<PrecheckRunItem>
     fun findByPrecheckRunIdAndFolderPath(precheckRunId: UUID, folderPath: String, pageable: Pageable): Page<PrecheckRunItem>
     fun findByPrecheckRunIdAndSelected(precheckRunId: UUID, selected: Boolean): List<PrecheckRunItem>
+    fun findByMediaFileId(mediaFileId: UUID): List<PrecheckRunItem>
+    fun deleteByPrecheckRunId(precheckRunId: UUID): Long
+
+    @Modifying
+    @Query("delete from PrecheckRunItem i where i.mediaFileId in :mediaFileIds")
+    fun deleteByMediaFileIds(mediaFileIds: Collection<UUID>): Int
     fun countByPrecheckRunIdAndSelected(precheckRunId: UUID, selected: Boolean): Long
 
     @Modifying

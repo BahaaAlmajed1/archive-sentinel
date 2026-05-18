@@ -213,7 +213,7 @@ export default function App() {
           <AutomationPage headers={data.headers} roots={data.roots} automations={data.automations} refresh={data.refresh} />
         )}
         {activeTab === 'reports' && (
-          <ReportsPage headers={data.headers} monitoring={data.monitoring} runs={data.runs} prechecks={data.prechecks} onOpenRun={openRun} />
+          <ReportsPage headers={data.headers} monitoring={data.monitoring} runs={data.runs} prechecks={data.prechecks} onOpenRun={openRun} refresh={data.refresh} />
         )}
         {activeTab === 'settings' && (
           <SettingsPage
@@ -222,10 +222,13 @@ export default function App() {
             setSettings={data.setSettings}
             onSubmit={saveSettings}
             onPasswordMessage={data.setMessage}
+            onDataReset={data.refresh}
           />
         )}
         {activeTab === 'runDetails' && selectedRunId && <RunDetailsPage id={selectedRunId} headers={data.headers} onBack={() => setActiveTab('reports')} />}
-        {activeTab === 'runDetails' && !selectedRunId && <ReportsPage headers={data.headers} monitoring={data.monitoring} runs={data.runs} prechecks={data.prechecks} onOpenRun={openRun} />}
+        {activeTab === 'runDetails' && !selectedRunId && (
+          <ReportsPage headers={data.headers} monitoring={data.monitoring} runs={data.runs} prechecks={data.prechecks} onOpenRun={openRun} refresh={data.refresh} />
+        )}
       </section>
     </main>
   )

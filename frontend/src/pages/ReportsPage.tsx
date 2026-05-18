@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Archive, CircleCheck, FileWarning, History, Hourglass, TrendingDown } from 'lucide-react'
+import { Archive, CircleCheck, FileWarning, History, Hourglass, Trash2, TrendingDown } from 'lucide-react'
 import { api, type ApiHeaders } from '../api/client'
 import { ArtifactLinks } from '../components/ArtifactLinks'
 import { MetricCard } from '../components/MetricCard'
@@ -16,12 +16,14 @@ export function ReportsPage({
   runs,
   prechecks,
   onOpenRun,
+  refresh,
 }: {
   headers: ApiHeaders
   monitoring: MonitoringDto | null
   runs: PageResponse<RunDto>
   prechecks: PageResponse<PrecheckRunDto>
   onOpenRun: (id: string) => void
+  refresh: () => Promise<void>
 }) {
   const [visibleRuns, setVisibleRuns] = useState<PageResponse<RunDto> | null>(null)
   const [runFilter, setRunFilter] = useState('')
@@ -39,6 +41,13 @@ export function ReportsPage({
 
   async function loadPrechecks(page: number, search = precheckSearch) {
     setVisiblePrechecks(await api.prechecks(headers, page, precheckPage.size, search))
+  }
+
+  async function deleteRun(run: RunDto) {
+    if (!window.confirm(`Delete run ${run.id.slice(0, 8)} from history? Report/log artifacts and this run's compression history will be removed.`)) return
+    await api.deleteRun(run.id, headers)
+    await refresh()
+    await loadRuns(runPage.page, runFilter, runSearch)
   }
 
   return (
@@ -81,6 +90,11 @@ export function ReportsPage({
                 </small>
               </div>
               <ArtifactLinks reportUrl={run.reportUrl} logUrl={run.logUrl} />
+              {!['QUEUED', 'RUNNING'].includes(run.status) && (
+                <button type="button" onClick={() => void deleteRun(run)}>
+                  <Trash2 size={15} /> Delete
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -2,6 +2,7 @@ package com.archivesentinel.service
 
 import com.archivesentinel.api.PolicyTargetRequest
 import com.archivesentinel.api.StorageRootRequest
+import com.archivesentinel.api.UntrackStorageRootResponse
 import com.archivesentinel.domain.AppSettings
 import com.archivesentinel.domain.DeletionMode
 import com.archivesentinel.domain.OutputMode
@@ -13,7 +14,10 @@ import com.archivesentinel.domain.TargetType
 import com.archivesentinel.domain.AutomationRule
 import com.archivesentinel.domain.AutomationRuleRepository
 import com.archivesentinel.domain.MediaFileRepository
+import com.archivesentinel.domain.OptimizationRunItemRepository
+import com.archivesentinel.domain.PrecheckRunItemRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
@@ -26,9 +30,12 @@ class StorageService(
     private val policyTargetRepository: PolicyTargetRepository,
     private val automationRuleRepository: AutomationRuleRepository,
     private val mediaFileRepository: MediaFileRepository,
+    private val optimizationRunItemRepository: OptimizationRunItemRepository,
+    private val precheckRunItemRepository: PrecheckRunItemRepository,
     private val appPathService: AppPathService,
     private val settingsService: SettingsService,
     private val policyResolutionService: PolicyResolutionService,
+    private val rootChangeMonitorService: RootChangeMonitorService,
 ) {
     fun roots(): List<StorageRoot> = storageRootRepository.findAll()
 
@@ -69,12 +76,18 @@ class StorageService(
 
     fun updateRoot(id: UUID, request: StorageRootRequest): StorageRoot {
         val root = storageRootRepository.findById(id).orElseThrow()
+        val pathChanged = appPathService.resolve(root.path) != appPathService.resolve(request.path)
         root.label = request.label
         root.path = request.path
         root.enabled = request.enabled
         root.optimizedRootOverride = request.optimizedRootOverride?.takeIf { it.isNotBlank() }
         root.archiveRootOverride = request.archiveRootOverride?.takeIf { it.isNotBlank() }
         root.autoRescanEnabled = request.autoRescanEnabled
+        if (pathChanged) {
+            root.lastScannedAt = null
+            root.latestPrecheckRunId = null
+            rootChangeMonitorService.markDirty(root.id)
+        }
         root.updatedAt = Instant.now()
         return storageRootRepository.save(root)
     }
@@ -85,6 +98,24 @@ class StorageService(
         }
         automationRuleRepository.deleteByStorageRootId(id)
         storageRootRepository.deleteById(id)
+    }
+
+    @Transactional
+    fun untrackAndDeleteRoot(id: UUID): UntrackStorageRootResponse {
+        val root = storageRootRepository.findById(id).orElseThrow()
+        val media = mediaFileRepository.findAllByStorageRootId(id)
+        val mediaIds = media.map { it.id }
+        val deletedPrecheckItems = if (mediaIds.isEmpty()) 0 else precheckRunItemRepository.deleteByMediaFileIds(mediaIds)
+        val clearedRunItemLinks = if (mediaIds.isEmpty()) 0 else optimizationRunItemRepository.clearMediaReferences(mediaIds)
+        mediaFileRepository.deleteAllInBatch(media)
+        automationRuleRepository.deleteByStorageRootId(id)
+        storageRootRepository.delete(root)
+        return UntrackStorageRootResponse(
+            deletedRootId = id,
+            untrackedMediaFiles = media.size,
+            deletedPrecheckItems = deletedPrecheckItems,
+            clearedRunItemLinks = clearedRunItemLinks,
+        )
     }
 
     fun policies(): List<PolicyTarget> = policyTargetRepository.findAll()

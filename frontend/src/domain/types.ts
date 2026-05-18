@@ -103,6 +103,12 @@ export type StorageRootScanProgressDto = {
   message: string
 }
 
+export type DeleteRunDto = { deletedRunId: string; deletedItems: number; recalculatedMediaFiles: number }
+
+export type DataResetDto = { deletedRuns: number; deletedPrechecks: number; deletedMediaFiles: number; examplesRestored: boolean }
+
+export type UntrackStorageRootDto = { deletedRootId: string; untrackedMediaFiles: number; deletedPrecheckItems: number; clearedRunItemLinks: number }
+
 export type RunDto = {
   id: string
   status: string

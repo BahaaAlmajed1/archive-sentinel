@@ -1,5 +1,6 @@
 package com.archivesentinel.api
 
+import com.archivesentinel.service.DataMaintenanceService
 import com.archivesentinel.service.NativePickerService
 import com.archivesentinel.service.OptimizationService
 import com.archivesentinel.service.PathService
@@ -19,6 +20,7 @@ class SystemController(
     private val nativePickerService: NativePickerService,
     private val tdarrService: TdarrService,
     private val optimizationService: OptimizationService,
+    private val dataMaintenanceService: DataMaintenanceService,
 ) {
     @GetMapping("/health")
     fun health() = mapOf("status" to "ok")
@@ -37,6 +39,9 @@ class SystemController(
 
     @PostMapping("/tdarr/clear-queue")
     fun clearTdarrQueue() = mapOf("clearedPaths" to optimizationService.forceClearTdarrQueue())
+
+    @PostMapping("/system/clear-data")
+    fun clearData(): DataResetResponse = dataMaintenanceService.clearAllData()
 
     @GetMapping("/paths/reveal")
     fun revealPath(@RequestParam path: String): ResponseEntity<Void> {
