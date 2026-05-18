@@ -1,0 +1,45 @@
+digraph ArchiveWorkflow {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    pad=0.25,
+    nodesep=0.45,
+    ranksep=0.65,
+    fontname="Arial"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#f8fafc",
+    color="#334155",
+    fontname="Arial",
+    margin="0.18,0.12"
+  ];
+  edge [
+    color="#64748b",
+    fontname="Arial",
+    arrowsize=0.8
+  ];
+
+  original [label="Original video"];
+  tdarr [label="Tdarr transcode"];
+  candidate [label="Candidate output"];
+  validate_candidate [label="Candidate validation"];
+  promote [label="Promote optimized file"];
+  validate_final [label="Final validation\n+ checksum"];
+  archive [label="Move original to archive"];
+  retention [label="Retention window"];
+  approval [label="Manual approval\nor automatic deletion"];
+  untouched [label="Original remains untouched", fillcolor="#fee2e2"];
+
+  original -> tdarr;
+  tdarr -> candidate;
+  candidate -> validate_candidate;
+  validate_candidate -> promote [label="pass"];
+  validate_candidate -> untouched [label="fail", color="#dc2626"];
+  promote -> validate_final;
+  validate_final -> archive [label="pass"];
+  validate_final -> untouched [label="fail", color="#dc2626"];
+  archive -> retention;
+  retention -> approval;
+}

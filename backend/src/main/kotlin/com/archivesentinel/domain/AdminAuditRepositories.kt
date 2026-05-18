@@ -1,0 +1,10 @@
+package com.archivesentinel.domain
+
+import org.springframework.data.jpa.repository.JpaRepository
+import java.util.UUID
+
+interface AdminUserRepository : JpaRepository<AdminUser, UUID> {
+    fun findByUsername(username: String): AdminUser?
+}
+
+interface AuditEventRepository : JpaRepository<AuditEvent, UUID>

@@ -1,0 +1,44 @@
+digraph ComposeDeployment {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    pad=0.25,
+    nodesep=0.45,
+    ranksep=0.75,
+    fontname="Arial"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#f8fafc",
+    color="#334155",
+    fontname="Arial",
+    margin="0.18,0.12"
+  ];
+  edge [
+    color="#64748b",
+    fontname="Arial",
+    arrowsize=0.8
+  ];
+
+  browser [label="Browser\nlocalhost:3000"];
+  ui [label="archive-ui\nnginx + React"];
+  api [label="archive-api\nlocalhost:8080"];
+  db [label="postgres"];
+  tdarr_server [label="tdarr-server\n8265 / 8266"];
+  tdarr_node [label="tdarr-node\nmanaged-node"];
+  gpu [label="NVIDIA GPU\noptional NVENC", fillcolor="#ecfccb"];
+  host_paths [label="Host paths\nORIGINALS_HOST_PATH\nOPTIMIZED_HOST_PATH\nARCHIVE_HOST_PATH\nSTAGING_HOST_PATH"];
+  container_paths [label="Container mounts\n/data/originals\n/data/optimized\n/data/archive\n/data/staging"];
+
+  browser -> ui;
+  ui -> api;
+  api -> db;
+  api -> tdarr_server;
+  tdarr_server -> tdarr_node;
+  gpu -> tdarr_node [label="Docker GPU runtime"];
+  host_paths -> container_paths [label="bind mounts"];
+  container_paths -> api;
+  container_paths -> tdarr_server;
+  container_paths -> tdarr_node;
+}

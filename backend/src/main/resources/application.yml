@@ -1,0 +1,45 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/archive_sentinel}
+    username: ${SPRING_DATASOURCE_USERNAME:archive_sentinel}
+    password: ${SPRING_DATASOURCE_PASSWORD:archive_sentinel}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:25}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+
+app:
+  defaults:
+    execution-mode: ${APP_EXECUTION_MODE:HOST_NATIVE}
+    tdarr-mode: ${APP_TDARR_MODE:EXISTING}
+    tdarr-base-url: ${APP_TDARR_BASE_URL:http://localhost:8266}
+    managed-tdarr-enabled: ${APP_MANAGED_TDARR_ENABLED:false}
+    archive-root: ${APP_DEFAULT_ARCHIVE_ROOT:runtime/archive}
+    optimized-root: ${APP_DEFAULT_OPTIMIZED_ROOT:runtime/optimized}
+    staging-root: ${APP_DEFAULT_STAGING_ROOT:runtime/staging}
+    precheck-extension-options: ${APP_DEFAULT_PRECHECK_EXTENSION_OPTIONS:mkv,mp4,mov,avi,m4v,webm,mpg,mpeg,wmv,m2ts,ts}
+    enabled-extensions: ${APP_DEFAULT_ENABLED_EXTENSIONS:mkv,mp4,mov,avi,m4v,webm,mpg,mpeg,wmv,m2ts,ts}
+    estimated-output-ratio-percent: ${APP_DEFAULT_ESTIMATED_OUTPUT_RATIO_PERCENT:65}
+    output-container-extension: ${APP_DEFAULT_OUTPUT_CONTAINER_EXTENSION:mkv}
+    duration-tolerance-seconds: ${APP_DEFAULT_DURATION_TOLERANCE_SECONDS:0.5}
+    tdarr-codecs-to-exclude: ${APP_DEFAULT_TDARR_CODECS_TO_EXCLUDE:hevc}
+    tdarr-transcode-arguments: ${APP_DEFAULT_TDARR_TRANSCODE_ARGUMENTS:,-map 0 -map_metadata 0 -map_chapters 0 -c:v hevc_nvenc -preset p5 -cq 28 -c:a copy -c:s copy}
+    media-ffmpeg-path: ${APP_DEFAULT_MEDIA_FFMPEG_PATH:}
+    media-ffprobe-path: ${APP_DEFAULT_MEDIA_FFPROBE_PATH:}
+  reports:
+    root: ${APP_REPORTS_ROOT:./runtime/reports}
+  cors:
+    allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}

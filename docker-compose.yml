@@ -1,0 +1,104 @@
+name: archive-sentinel
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: archive_sentinel
+      POSTGRES_USER: archive_sentinel
+      POSTGRES_PASSWORD: archive_sentinel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U archive_sentinel -d archive_sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  archive-api:
+    build:
+      context: ./backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/archive_sentinel
+      SPRING_DATASOURCE_USERNAME: archive_sentinel
+      SPRING_DATASOURCE_PASSWORD: archive_sentinel
+      APP_EXECUTION_MODE: DOCKER
+      APP_TDARR_MODE: MANAGED
+      APP_TDARR_BASE_URL: http://tdarr-server:8266
+      APP_MANAGED_TDARR_ENABLED: "true"
+      APP_DEFAULT_ARCHIVE_ROOT: /data/archive
+      APP_DEFAULT_OPTIMIZED_ROOT: /data/optimized
+      APP_DEFAULT_STAGING_ROOT: /data/staging
+      APP_ALLOWED_ORIGIN: http://localhost:3000
+      FFMPEG_PATH: ffmpeg
+      FFPROBE_PATH: ffprobe
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${ORIGINALS_HOST_PATH:-./runtime/originals}:/data/originals
+      - ${OPTIMIZED_HOST_PATH:-./runtime/optimized}:/data/optimized
+      - ${ARCHIVE_HOST_PATH:-./runtime/archive}:/data/archive
+      - ${STAGING_HOST_PATH:-./runtime/staging}:/data/staging
+    ports:
+      - "8080:8080"
+
+  archive-ui:
+    build:
+      context: ./frontend
+    depends_on:
+      - archive-api
+    ports:
+      - "3000:80"
+
+  tdarr-server:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    environment:
+      serverIP: 0.0.0.0
+      serverPort: 8266
+      webUIPort: 8265
+    volumes:
+      - tdarr_server:/app/server
+      - tdarr_configs:/app/configs
+      - tdarr_logs:/app/logs
+      - ${ORIGINALS_HOST_PATH:-./runtime/originals}:/data/originals
+      - ${OPTIMIZED_HOST_PATH:-./runtime/optimized}:/data/optimized
+      - ${ARCHIVE_HOST_PATH:-./runtime/archive}:/data/archive
+      - ${STAGING_HOST_PATH:-./runtime/staging}:/data/staging
+    ports:
+      - "8265:8265"
+      - "8266:8266"
+
+  tdarr-node:
+    image: ghcr.io/haveagitgat/tdarr_node:latest
+    environment:
+      serverIP: tdarr-server
+      serverPort: 8266
+      nodeName: managed-node
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - tdarr-server
+    volumes:
+      - tdarr_node_configs:/app/configs
+      - tdarr_logs:/app/logs
+      - ${ORIGINALS_HOST_PATH:-./runtime/originals}:/data/originals
+      - ${OPTIMIZED_HOST_PATH:-./runtime/optimized}:/data/optimized
+      - ${ARCHIVE_HOST_PATH:-./runtime/archive}:/data/archive
+      - ${STAGING_HOST_PATH:-./runtime/staging}:/data/staging
+
+volumes:
+  postgres_data:
+  tdarr_server:
+  tdarr_configs:
+  tdarr_logs:
+  tdarr_node_configs:

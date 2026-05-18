@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:archive_sentinel;MODE=PostgreSQL;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  mail:
+    host: localhost
+
+app:
+  defaults:
+    execution-mode: HOST_NATIVE
+    tdarr-mode: EXISTING
+    tdarr-base-url: http://localhost:1
+    managed-tdarr-enabled: false
+    archive-root: runtime/archive
+    optimized-root: runtime/optimized
+    staging-root: runtime/staging
+    precheck-extension-options: mkv,mp4,mov,avi,m4v,webm,mpg,mpeg,wmv,m2ts,ts
+    enabled-extensions: mkv,mp4,mov,avi,m4v,webm,mpg,mpeg,wmv,m2ts,ts
+    estimated-output-ratio-percent: 65
+    output-container-extension: mkv
+    duration-tolerance-seconds: 0.5
+    tdarr-codecs-to-exclude: hevc
+    tdarr-transcode-arguments: ',-map 0 -map_metadata 0 -map_chapters 0 -c:v hevc_nvenc -preset p5 -cq 28 -c:a copy -c:s copy'
+    media-ffmpeg-path: ''
+    media-ffprobe-path: ''
+  reports:
+    root: build/test-reports
+  cors:
+    allowed-origins: http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173

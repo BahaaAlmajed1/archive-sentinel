@@ -1,0 +1,27 @@
+# Local environment
+.env
+.env.local
+*.local
+.idea
+# Build output and dependencies
+backend/.gradle/
+backend/build/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Runtime data. Keep only small checked-in examples.
+runtime/*
+!runtime/examples/
+!runtime/examples/**
+backend/runtime/
+
+# Logs and temp files
+*.log
+logs/
+out/
+.DS_Store
+
+# IDE user state
+.idea/workspace.xml
+.vscode/

@@ -1,0 +1,53 @@
+digraph ValidationGates {
+  graph [
+    rankdir=TB,
+    bgcolor="white",
+    pad=0.25,
+    nodesep=0.38,
+    ranksep=0.55,
+    fontname="Arial"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#f8fafc",
+    color="#334155",
+    fontname="Arial",
+    margin="0.18,0.12"
+  ];
+  edge [
+    color="#64748b",
+    fontname="Arial",
+    arrowsize=0.8
+  ];
+
+  start [label="Candidate file produced"];
+  exists [label="Candidate exists"];
+  topology [label="Video / audio / subtitle counts\nand stream topology match"];
+  chapters [label="Chapter count matches"];
+  metadata [label="Critical metadata preserved"];
+  duration [label="Duration delta <= 0.5s"];
+  size [label="Candidate is smaller\nthan original"];
+  decode [label="Video and audio decode\nwithout ffmpeg errors"];
+  checksum [label="Promoted file checksum\nmatches staged candidate"];
+  pass [label="Safe to archive original", fillcolor="#dcfce7"];
+  fail [label="Stop replacement\nmark failed\nkeep original", fillcolor="#fee2e2"];
+
+  start -> exists;
+  exists -> topology [label="yes"];
+  exists -> fail [label="no", color="#dc2626"];
+  topology -> chapters [label="yes"];
+  topology -> fail [label="no", color="#dc2626"];
+  chapters -> metadata [label="yes"];
+  chapters -> fail [label="no", color="#dc2626"];
+  metadata -> duration [label="yes"];
+  metadata -> fail [label="no", color="#dc2626"];
+  duration -> size [label="yes"];
+  duration -> fail [label="no", color="#dc2626"];
+  size -> decode [label="yes"];
+  size -> fail [label="no", color="#dc2626"];
+  decode -> checksum [label="yes"];
+  decode -> fail [label="no", color="#dc2626"];
+  checksum -> pass [label="yes"];
+  checksum -> fail [label="no", color="#dc2626"];
+}

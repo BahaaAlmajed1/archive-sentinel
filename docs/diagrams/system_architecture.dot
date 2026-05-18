@@ -1,0 +1,45 @@
+digraph SystemArchitecture {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    pad=0.25,
+    nodesep=0.45,
+    ranksep=0.7,
+    fontname="Arial"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fillcolor="#f7f9fc",
+    color="#334155",
+    fontname="Arial",
+    margin="0.18,0.12"
+  ];
+  edge [
+    color="#64748b",
+    fontname="Arial",
+    arrowsize=0.8
+  ];
+
+  ui [label="React UI\nVite build"];
+  api [label="Spring Boot API\nKotlin"];
+  db [label="PostgreSQL"];
+  tdarr [label="Tdarr server"];
+  node_worker [label="Tdarr node\nCPU or NVIDIA GPU"];
+  source [label="Storage roots\noriginal media"];
+  staging [label="Optional staging root\ncandidate outputs"];
+  optimized [label="Optimized root"];
+  archive [label="Archive root\nretained originals"];
+  reports [label="Monitoring summary\nHTML email reports"];
+
+  ui -> api [label="REST"];
+  api -> db [label="JPA / Flyway"];
+  api -> tdarr [label="Tdarr API"];
+  tdarr -> node_worker [label="jobs"];
+  source -> node_worker [label="read originals"];
+  node_worker -> staging [label="write candidates"];
+  staging -> api [label="validate"];
+  api -> optimized [label="promote verified copy"];
+  api -> archive [label="move original after pass"];
+  api -> reports [label="scheduled summary"];
+}
