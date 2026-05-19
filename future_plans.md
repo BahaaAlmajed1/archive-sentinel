@@ -42,7 +42,7 @@ This checklist tracks the requested future-plan implementation pass. Checked ite
 - [x] In host-native mode, work directly with system folders instead of Docker mount aliases.
 - [x] Show system paths in the UI rather than container paths.
 - [x] Preserve Docker Compose as an optional deployment path.
-- [x] Include README and runbook instructions for host-machine PostgreSQL, API, UI, ffmpeg, and Tdarr.
+- [x] Include README setup guidance for host-machine PostgreSQL, API, UI, ffmpeg, and Tdarr.
 - [x] Confirm in docs that restarts/reinstalls do not impact files/data when persistent folders and PostgreSQL data are retained.
 - [x] Move the staged candidate into the optimized destination after validation instead of leaving staging with a promoted copy.
 
