@@ -11,7 +11,7 @@ Implemented:
 - Host-native mode as the default operating mode.
 - Optional Docker Compose deployment with PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node.
 - First-run setup and editable Settings.
-- OS-native picker endpoints for Windows and Linux folder/file selection when the backend is running interactively on the host.
+- Browser-based server file picker for selecting folders/files from the machine running the backend, even when the browser is on another computer.
 - Storage roots plus file/folder policies with recursive matching, exclusion, extension exclusions, retention, deletion mode, and output mode overrides.
 - Precheck scanning against all enabled roots or a selected subset of roots, with async progress, metadata caching for unchanged files, parent/child root de-duplication, storage-root navigation, collapsed folder master/detail rows, durable server-side selection state, and enabled extensions configured from Settings.
 - Dedicated HTML and log reports for each precheck and optimization run.
@@ -152,12 +152,36 @@ bash scripts/setup-linux.sh docker
 
 Host mode installs Java 21, Node.js 22, PostgreSQL, FFmpeg, and Zenity where the package manager supports it, creates the `archive_sentinel` database/user, builds the app, and starts backend/frontend processes with logs in `runtime/logs`. It also writes `.env.local` with the backend port, UI proxy target, Tdarr URL, and LAN-safe CORS origins so `http://<server-ip>:5173` works from another machine on the same network.
 
-Host mode expects an existing Tdarr server and at least one Tdarr node at `TDARR_URL`:
+Host mode can use an existing Tdarr server and node at `TDARR_URL`:
 
 ```bash
-TDARR_URL=http://localhost:8266 bash scripts/setup-linux.sh host
+bash scripts/setup-linux.sh host --tdarr-url http://localhost:8266
 curl http://localhost:8266/api/v2/status
 ```
+
+If you do not already have Tdarr, let the host setup start a managed Tdarr server and node through Docker:
+
+```bash
+bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+Managed Tdarr worker counts can be overridden, but the defaults are GPU-first when a GPU is detected:
+
+```bash
+TDARR_GPU_WORKERS=2 TDARR_CPU_WORKERS=0 bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+If PostgreSQL already exists, point the setup at it instead of creating a local database:
+
+```bash
+bash scripts/setup-linux.sh host \
+  --postgres-url jdbc:postgresql://db-host:5432/archive_sentinel \
+  --postgres-user archive_sentinel \
+  --postgres-password archive_sentinel \
+  --tdarr-url http://tdarr-host:8266
+```
+
+If Java 21, Node.js 22/npm, FFmpeg, PostgreSQL, Docker, or Tdarr are already installed, the script reuses them. To prevent package installation entirely, add `--skip-packages` after installing the prerequisites yourself.
 
 The default host encoding arguments target NVIDIA NVENC. On a CPU-only Linux server, open Settings before starting real jobs and use HEVC CPU arguments while keeping `Codecs to skip` as `hevc`:
 
@@ -166,6 +190,8 @@ The default host encoding arguments target NVIDIA NVENC. On a CPU-only Linux ser
 ```
 
 Docker mode builds and starts PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node through Compose.
+
+The managed Tdarr path gives the node NVIDIA `--gpus=all` access when `nvidia-smi` is available and maps `/dev/dri` when present for VAAPI/QSV-class devices. It writes Tdarr's worker environment variables so GPU hosts default to `transcodegpuWorkers=1`, `healthcheckgpuWorkers=1`, `transcodecpuWorkers=0`, and `healthcheckcpuWorkers=0`; CPU-only hosts default to one CPU transcode and health-check worker.
 
 ### 5. First login
 

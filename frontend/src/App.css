@@ -360,6 +360,125 @@ nav button.active {
   padding: 0;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(11, 21, 32, 0.45);
+}
+
+.server-picker {
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(760px, calc(100vh - 28px));
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #c8d4df;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 22px 70px rgba(8, 17, 28, 0.28);
+}
+
+.server-picker-head,
+.server-picker-toolbar,
+.server-picker-actions,
+.server-picker-roots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.server-picker-head {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.server-picker-head h2 {
+  margin: 0;
+}
+
+.server-picker-head p {
+  margin: 4px 0 0;
+  color: #637282;
+}
+
+.server-picker-toolbar {
+  align-items: stretch;
+}
+
+.server-picker-toolbar > button {
+  width: 38px;
+  padding: 0;
+}
+
+.server-picker-path {
+  flex: 1;
+}
+
+.server-picker-hidden {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.server-picker-hidden input {
+  width: auto;
+}
+
+.server-picker-roots {
+  flex-wrap: wrap;
+}
+
+.server-picker-list {
+  min-height: 260px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border: 1px solid #d7e0e8;
+  border-radius: 8px;
+  padding: 8px;
+  background: #f8fafc;
+}
+
+.server-picker-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto 22px;
+  justify-content: stretch;
+  text-align: left;
+  width: 100%;
+  min-height: 38px;
+  background: #fff;
+}
+
+.server-picker-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server-picker-row.selected {
+  border-color: #20756d;
+  background: #eef6f4;
+}
+
+.server-picker-check {
+  color: transparent;
+}
+
+.server-picker-check.active {
+  color: #20756d;
+}
+
+.server-picker-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .dense-list,
 .table,
 .run-list {

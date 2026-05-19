@@ -15,6 +15,7 @@ import type {
   RunDetailsDto,
   RunDto,
   SettingsDto,
+  ServerBrowserResponse,
   StorageRootScanProgressDto,
   UntrackStorageRootDto,
 } from '../domain/types'
@@ -156,6 +157,8 @@ export const api = {
       headers,
       body: JSON.stringify({ multiple: true, initialPath }),
     }),
+  browseServerFiles: (headers: ApiHeaders, body: { path?: string; kind: 'folder' | 'file'; showHidden?: boolean }) =>
+    fetchJson<ServerBrowserResponse>('/api/server-browser', { method: 'POST', headers, body: JSON.stringify(body) }),
   changePassword: (body: { currentPassword: FormDataEntryValue | null; newPassword: FormDataEntryValue | null }, headers: ApiHeaders) =>
     fetch('/api/auth/change-password', { method: 'POST', headers, body: JSON.stringify(body) }),
   clearTdarrQueue: (headers: ApiHeaders) => fetchJson<{ clearedPaths: number }>('/api/tdarr/clear-queue', { method: 'POST', headers }),

@@ -197,6 +197,25 @@ export type PrecheckRunDto = {
 
 export type NativePickerResponse = { paths: string[]; cancelled: boolean; message: string | null }
 
+export type ServerBrowserEntry = {
+  name: string
+  path: string
+  directory: boolean
+  readable: boolean
+  writable: boolean
+  hidden: boolean
+  sizeBytes: number | null
+}
+
+export type ServerBrowserResponse = {
+  currentPath: string
+  parentPath: string | null
+  entries: ServerBrowserEntry[]
+  roots: string[]
+  separator: string
+  message: string | null
+}
+
 export type AutomationDto = {
   id: string
   storageRootId: string

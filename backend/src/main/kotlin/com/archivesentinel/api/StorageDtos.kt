@@ -10,6 +10,24 @@ data class PathValidationResponse(val path: String, val exists: Boolean, val rea
 data class TdarrStatusResponse(val reachable: Boolean, val status: String?, val version: String?)
 data class NativePickerRequest(val multiple: Boolean = true, val initialPath: String? = null)
 data class NativePickerResponse(val paths: List<String>, val cancelled: Boolean, val message: String? = null)
+data class ServerBrowserRequest(val path: String? = null, val kind: String = "folder", val showHidden: Boolean = false)
+data class ServerBrowserEntry(
+    val name: String,
+    val path: String,
+    val directory: Boolean,
+    val readable: Boolean,
+    val writable: Boolean,
+    val hidden: Boolean,
+    val sizeBytes: Long? = null,
+)
+data class ServerBrowserResponse(
+    val currentPath: String,
+    val parentPath: String?,
+    val entries: List<ServerBrowserEntry>,
+    val roots: List<String>,
+    val separator: String,
+    val message: String? = null,
+)
 data class DeleteRunResponse(val deletedRunId: UUID, val deletedItems: Int, val recalculatedMediaFiles: Int)
 data class DataResetResponse(val deletedRuns: Long, val deletedPrechecks: Long, val deletedMediaFiles: Long, val examplesRestored: Boolean)
 data class UntrackStorageRootResponse(val deletedRootId: UUID, val untrackedMediaFiles: Int, val deletedPrecheckItems: Int, val clearedRunItemLinks: Int)
