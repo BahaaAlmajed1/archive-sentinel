@@ -4,6 +4,7 @@ import com.archivesentinel.service.DataMaintenanceService
 import com.archivesentinel.service.NativePickerService
 import com.archivesentinel.service.OptimizationService
 import com.archivesentinel.service.PathService
+import com.archivesentinel.service.ServerFileBrowserService
 import com.archivesentinel.service.TdarrService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 class SystemController(
     private val pathService: PathService,
     private val nativePickerService: NativePickerService,
+    private val serverFileBrowserService: ServerFileBrowserService,
     private val tdarrService: TdarrService,
     private val optimizationService: OptimizationService,
     private val dataMaintenanceService: DataMaintenanceService,
@@ -33,6 +35,9 @@ class SystemController(
 
     @PostMapping("/pickers/files")
     fun pickFiles(@RequestBody request: NativePickerRequest) = nativePickerService.pickFiles(request)
+
+    @PostMapping("/server-browser")
+    fun browseServerFiles(@RequestBody request: ServerBrowserRequest) = serverFileBrowserService.browse(request)
 
     @GetMapping("/tdarr/status")
     fun tdarrStatus() = tdarrService.status()

@@ -22,13 +22,22 @@ Install prerequisites:
 
 ### Linux assisted setup
 
-From the repository root on Linux:
+From a fresh Linux server:
+
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/BahaaAlmajed1/archive-sentinel.git
+cd archive-sentinel
+```
+
+Then run the one-command host setup from the repository root:
 
 ```bash
 bash scripts/setup-linux.sh host
 ```
 
-The host-native script installs Java 21, Node.js/npm, PostgreSQL, FFmpeg, Zenity, and curl using `apt`, `dnf`, `yum`, or `pacman` when available. It starts PostgreSQL, creates the `archive_sentinel` database and user, writes `.env.local`, builds the backend and frontend, then starts both processes in the background. Logs are written under `runtime/logs`.
+The host-native script installs Java 21, Node.js 22/npm, PostgreSQL, FFmpeg, Zenity, and curl using `apt`, `dnf`, `yum`, or `pacman` when available. It starts PostgreSQL, creates the `archive_sentinel` database and user, writes `.env.local`, builds the backend and frontend, then starts both processes in the background. Logs are written under `runtime/logs`.
 
 Useful environment overrides:
 
@@ -37,7 +46,44 @@ API_PORT=8080 UI_PORT=5173 TDARR_URL=http://localhost:8266 bash scripts/setup-li
 DB_NAME=archive_sentinel DB_USER=archive_sentinel DB_PASSWORD=archive_sentinel bash scripts/setup-linux.sh host
 ```
 
-Host-native mode still expects Tdarr server/node to be running natively or elsewhere at `TDARR_URL`. If you want the script to bring up managed Tdarr too, use Docker mode instead.
+Host-native mode can use an existing Tdarr server and at least one existing Tdarr node:
+
+```bash
+bash scripts/setup-linux.sh host --tdarr-url http://localhost:8266
+curl http://localhost:8266/api/v2/status
+```
+
+If you do not already have Tdarr, let host setup create managed Tdarr through Docker:
+
+```bash
+bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+Managed Tdarr defaults to GPU workers and zero CPU workers when a GPU is detected. Override the counts if you want a different balance:
+
+```bash
+TDARR_GPU_WORKERS=2 TDARR_CPU_WORKERS=0 bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+If PostgreSQL already exists, use it instead of creating a local database:
+
+```bash
+bash scripts/setup-linux.sh host \
+  --postgres-url jdbc:postgresql://db-host:5432/archive_sentinel \
+  --postgres-user archive_sentinel \
+  --postgres-password archive_sentinel \
+  --tdarr-url http://tdarr-host:8266
+```
+
+If prerequisites are already installed and you do not want the script to install packages, add `--skip-packages`.
+
+Managed Tdarr gives the node NVIDIA `--gpus=all` access when `nvidia-smi` is available and maps `/dev/dri` when present for VAAPI/QSV-class devices. GPU hosts start with Tdarr GPU transcode and health-check workers and zero CPU workers; CPU-only hosts start with one CPU transcode and health-check worker.
+
+The default host-native transcode arguments target NVIDIA NVENC. On a CPU-only Linux server, set Settings -> Tdarr encoding to HEVC CPU arguments before starting production work and leave `Codecs to skip` as `hevc`:
+
+```text
+,-map 0 -map_metadata 0 -map_chapters 0 -c:v libx265 -preset ultrafast -crf 32 -c:a aac -b:a 96k -c:s copy
+```
 
 If Tdarr is installed natively with the updater, Archive Sentinel can auto-detect Tdarr's bundled ffmpeg and ffprobe binaries, so separate FFmpeg installation is optional.
 
@@ -203,7 +249,7 @@ Docker examples:
 /data/originals
 ```
 
-Use the folder picker button when the backend is running interactively on the host. On Windows it opens a native Windows picker. On Linux it uses `zenity` when available. If Windows shows a UAC or firewall prompt while starting native tools, approve it; if it is denied, rerun the same action and approve the prompt.
+Use the folder picker button to browse the server filesystem from the web UI. If the backend runs on Linux and the browser runs on Windows, the picker still lists Linux server paths such as `/home`, `/mnt`, and `/media`, not Windows client folders.
 
 Relative storage roots are resolved from the project workspace, so paths like `runtime/e2e/cod-clips-20260518/originals` work across machines when the repo folder moves.
 

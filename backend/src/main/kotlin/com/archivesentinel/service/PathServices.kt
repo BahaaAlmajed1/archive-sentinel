@@ -3,12 +3,17 @@ package com.archivesentinel.service
 import com.archivesentinel.api.NativePickerRequest
 import com.archivesentinel.api.NativePickerResponse
 import com.archivesentinel.api.PathValidationResponse
+import com.archivesentinel.api.ServerBrowserEntry
+import com.archivesentinel.api.ServerBrowserRequest
+import com.archivesentinel.api.ServerBrowserResponse
 import org.springframework.stereotype.Service
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
+import kotlin.streams.toList
 
 @Service
 class AppPathService {
@@ -56,6 +61,61 @@ class PathService(private val appPathService: AppPathService) {
             false
         }
     }
+}
+
+@Service
+class ServerFileBrowserService(private val appPathService: AppPathService) {
+    fun browse(request: ServerBrowserRequest): ServerBrowserResponse {
+        val kind = request.kind.lowercase()
+        val start = startPath(request.path, kind)
+        val directory = when {
+            Files.isDirectory(start) -> start
+            start.parent != null -> start.parent
+            else -> homePath()
+        }.toAbsolutePath().normalize()
+        val roots = FileSystems.getDefault().rootDirectories.map { it.toAbsolutePath().normalize().toString() }.toList()
+        val entries = runCatching {
+            Files.list(directory).use { stream ->
+                stream
+                    .filter { request.showHidden || !isHidden(it) }
+                    .filter { kind == "file" || Files.isDirectory(it) }
+                    .map { entry -> entry.toBrowserEntry() }
+                    .toList()
+                    .sortedWith(compareBy<ServerBrowserEntry> { !it.directory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            }
+        }.getOrElse { emptyList() }
+        val message = if (Files.isReadable(directory)) null else "Directory is not readable."
+        return ServerBrowserResponse(
+            currentPath = directory.toString(),
+            parentPath = directory.parent?.toString(),
+            entries = entries,
+            roots = roots,
+            separator = directory.fileSystem.separator,
+            message = message,
+        )
+    }
+
+    private fun startPath(rawPath: String?, kind: String): Path {
+        if (rawPath.isNullOrBlank()) return homePath()
+        val resolved = runCatching { appPathService.resolve(rawPath) }.getOrElse { homePath() }
+        return if (kind == "file" && !Files.isDirectory(resolved) && resolved.parent != null) resolved.parent else resolved
+    }
+
+    private fun homePath(): Path = Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize()
+
+    private fun Path.toBrowserEntry(): ServerBrowserEntry =
+        ServerBrowserEntry(
+            name = fileName?.toString() ?: toString(),
+            path = toAbsolutePath().normalize().toString(),
+            directory = Files.isDirectory(this),
+            readable = Files.isReadable(this),
+            writable = Files.isWritable(this),
+            hidden = isHidden(this),
+            sizeBytes = if (Files.isRegularFile(this)) runCatching { Files.size(this) }.getOrNull() else null,
+        )
+
+    private fun isHidden(path: Path): Boolean =
+        runCatching { Files.isHidden(path) }.getOrDefault(path.fileName?.toString()?.startsWith(".") == true)
 }
 
 @Service

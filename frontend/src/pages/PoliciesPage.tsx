@@ -138,7 +138,7 @@ export function PoliciesPage({
           </div>
 
           <div className="policy-picker-row">
-            <PathPickerButton headers={headers} kind={targetType === 'FILE' ? 'file' : 'folder'} onPick={appendPaths} />
+            <PathPickerButton headers={headers} kind={targetType === 'FILE' ? 'file' : 'folder'} multiple onPick={appendPaths} />
             <span>{targetType === 'FILE' ? 'Pick files' : 'Pick folders'}</span>
           </div>
 

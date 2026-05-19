@@ -11,7 +11,7 @@ Implemented:
 - Host-native mode as the default operating mode.
 - Optional Docker Compose deployment with PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node.
 - First-run setup and editable Settings.
-- OS-native picker endpoints for Windows and Linux folder/file selection when the backend is running interactively on the host.
+- Browser-based server file picker for selecting folders/files from the machine running the backend, even when the browser is on another computer.
 - Storage roots plus file/folder policies with recursive matching, exclusion, extension exclusions, retention, deletion mode, and output mode overrides.
 - Precheck scanning against all enabled roots or a selected subset of roots, with async progress, metadata caching for unchanged files, parent/child root de-duplication, storage-root navigation, collapsed folder master/detail rows, durable server-side selection state, and enabled extensions configured from Settings.
 - Dedicated HTML and log reports for each precheck and optimization run.
@@ -134,15 +134,64 @@ runtime/staging
 Add your real media folders as storage roots from the dashboard. Each root can optionally override its optimized-output and archive destinations; when no override is set, parallel mode writes under the global optimized/archive roots plus a namespace based on the storage root path, for example `runtime/optimized/CLIPS/Game Name/...`.
 
 ### Linux one-command setup
+Install Git, clone the repo, enter it, then run the helper from the repository root:
 
-On Linux, the helper script can set up either the host-native app path or the full Docker Compose stack:
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/BahaaAlmajed1/archive-sentinel.git
+cd archive-sentinel
+```
+
+The helper can set up either the host-native app path or the full Docker Compose stack:
 
 ```bash
 bash scripts/setup-linux.sh host
 bash scripts/setup-linux.sh docker
 ```
 
-Host mode installs Java 21, Node.js, PostgreSQL, FFmpeg, and Zenity where the package manager supports it, creates the `archive_sentinel` database/user, builds the app, and starts backend/frontend processes with logs in `runtime/logs`. Docker mode builds and starts PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node through Compose.
+Host mode installs Java 21, Node.js 22, PostgreSQL, FFmpeg, and Zenity where the package manager supports it, creates the `archive_sentinel` database/user, builds the app, and starts backend/frontend processes with logs in `runtime/logs`. It also writes `.env.local` with the backend port, UI proxy target, Tdarr URL, and LAN-safe CORS origins so `http://<server-ip>:5173` works from another machine on the same network.
+
+Host mode can use an existing Tdarr server and node at `TDARR_URL`:
+
+```bash
+bash scripts/setup-linux.sh host --tdarr-url http://localhost:8266
+curl http://localhost:8266/api/v2/status
+```
+
+If you do not already have Tdarr, let the host setup start a managed Tdarr server and node through Docker:
+
+```bash
+bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+Managed Tdarr worker counts can be overridden, but the defaults are GPU-first when a GPU is detected:
+
+```bash
+TDARR_GPU_WORKERS=2 TDARR_CPU_WORKERS=0 bash scripts/setup-linux.sh host --managed-tdarr
+```
+
+If PostgreSQL already exists, point the setup at it instead of creating a local database:
+
+```bash
+bash scripts/setup-linux.sh host \
+  --postgres-url jdbc:postgresql://db-host:5432/archive_sentinel \
+  --postgres-user archive_sentinel \
+  --postgres-password archive_sentinel \
+  --tdarr-url http://tdarr-host:8266
+```
+
+If Java 21, Node.js 22/npm, FFmpeg, PostgreSQL, Docker, or Tdarr are already installed, the script reuses them. To prevent package installation entirely, add `--skip-packages` after installing the prerequisites yourself.
+
+The default host encoding arguments target NVIDIA NVENC. On a CPU-only Linux server, open Settings before starting real jobs and use HEVC CPU arguments while keeping `Codecs to skip` as `hevc`:
+
+```text
+,-map 0 -map_metadata 0 -map_chapters 0 -c:v libx265 -preset ultrafast -crf 32 -c:a aac -b:a 96k -c:s copy
+```
+
+Docker mode builds and starts PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node through Compose.
+
+The managed Tdarr path gives the node NVIDIA `--gpus=all` access when `nvidia-smi` is available and maps `/dev/dri` when present for VAAPI/QSV-class devices. It writes Tdarr's worker environment variables so GPU hosts default to `transcodegpuWorkers=1`, `healthcheckgpuWorkers=1`, `transcodecpuWorkers=0`, and `healthcheckcpuWorkers=0`; CPU-only hosts default to one CPU transcode and health-check worker.
 
 ### 5. First login
 

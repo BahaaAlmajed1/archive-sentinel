@@ -109,32 +109,13 @@ class TdarrService(
     private fun ensureCandidateLibrary(sourceRoot: Path, candidateRoot: Path, cacheRoot: Path, settings: com.archivesentinel.domain.AppSettings): String {
         val libraryId = "archive-sentinel-${sha256("${sourceRoot.normalize()}|${candidateRoot.normalize()}").take(16)}"
         val existing = crudGetById("LibrarySettingsJSONDB", libraryId)
-        val library = candidateLibrary(libraryId, sourceRoot, candidateRoot, cacheRoot, settings).toMutableMap()
-        if (existing != null && !existing.isNull) preserveTdarrTuning(existing, library)
+        val library = candidateLibrary(libraryId, sourceRoot, candidateRoot, cacheRoot, settings)
         if (existing == null || existing.isNull) {
             crudWrite("insert", "LibrarySettingsJSONDB", libraryId, library)
         } else {
             crudWrite("update", "LibrarySettingsJSONDB", libraryId, library)
         }
         return libraryId
-    }
-
-    private fun preserveTdarrTuning(existing: JsonNode, library: MutableMap<String, Any>) {
-        listOf(
-            "pluginIDs",
-            "pluginCommunity",
-            "handbrake",
-            "ffmpeg",
-            "handbrakescan",
-            "ffmpegscan",
-            "preset",
-            "decisionMaker",
-            "processPluginsSequentially",
-        ).forEach { key ->
-            existing.get(key)
-                ?.takeUnless { it.isNull }
-                ?.let { library[key] = objectMapper.convertValue(it, Any::class.java) }
-        }
     }
 
     private fun candidateLibrary(
@@ -348,7 +329,6 @@ class TdarrService(
     }
 
     private fun ensureCompatibleWorkers(settings: com.archivesentinel.domain.AppSettings) {
-        if (!requiresGpuWorker(settings.tdarrTranscodeArguments)) return
         val nodes = runCatching {
             restTemplate.getForObject("${settings.tdarrBaseUrl}/api/v2/get-nodes", Map::class.java)
         }.getOrNull() ?: return
@@ -358,8 +338,12 @@ class TdarrService(
         val workerLimits = node["workerLimits"] as? Map<*, *> ?: return
         val gpuWorkers = (workerLimits["transcodegpu"] as? Number)?.toInt() ?: 0
         val cpuWorkers = (workerLimits["transcodecpu"] as? Number)?.toInt() ?: 0
-        if (gpuWorkers == 0) alterWorkerLimit(nodeId, "increase", "transcodegpu")
-        repeat(cpuWorkers) { alterWorkerLimit(nodeId, "decrease", "transcodecpu") }
+        if (requiresGpuWorker(settings.tdarrTranscodeArguments)) {
+            if (gpuWorkers == 0) alterWorkerLimit(nodeId, "increase", "transcodegpu")
+            repeat(cpuWorkers) { alterWorkerLimit(nodeId, "decrease", "transcodecpu") }
+        } else if (cpuWorkers == 0) {
+            alterWorkerLimit(nodeId, "increase", "transcodecpu")
+        }
     }
 
     private fun alterWorkerLimit(nodeId: String, process: String, workerType: String) {
