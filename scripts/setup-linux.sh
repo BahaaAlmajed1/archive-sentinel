@@ -9,8 +9,10 @@ DB_NAME="${DB_NAME:-archive_sentinel}"
 DB_USER="${DB_USER:-archive_sentinel}"
 DB_PASSWORD="${DB_PASSWORD:-archive_sentinel}"
 POSTGRES_URL="${POSTGRES_URL:-${SPRING_DATASOURCE_URL:-}}"
+POSTGRES_SETUP="${POSTGRES_SETUP:-}"
 INSTALL_PACKAGES="${INSTALL_PACKAGES:-auto}"
 TDARR_MODE="${TDARR_MODE:-existing}"
+TDARR_SETUP="${TDARR_SETUP:-}"
 TDARR_URL="${TDARR_URL:-http://localhost:8266}"
 VITE_DEV_PROXY_ORIGIN="${VITE_DEV_PROXY_ORIGIN:-http://localhost:$UI_PORT}"
 
@@ -29,8 +31,10 @@ Environment overrides:
   DB_NAME=archive_sentinel
   DB_USER=archive_sentinel
   DB_PASSWORD=archive_sentinel
+  POSTGRES_SETUP=install|existing
   POSTGRES_URL=jdbc:postgresql://db-host:5432/archive_sentinel
   INSTALL_PACKAGES=auto|skip
+  TDARR_SETUP=existing|managed
   TDARR_MODE=existing|managed
   TDARR_URL=http://localhost:8266
   TDARR_GPU_WORKERS=1
@@ -49,15 +53,18 @@ parse_args() {
       --tdarr-url)
         TDARR_URL="$2"
         TDARR_MODE="existing"
+        TDARR_SETUP="existing"
         shift 2
         ;;
       --managed-tdarr)
         TDARR_MODE="managed"
+        TDARR_SETUP="managed"
         TDARR_URL="http://localhost:8266"
         shift
         ;;
       --postgres-url|--db-url)
         POSTGRES_URL="$2"
+        POSTGRES_SETUP="existing"
         shift 2
         ;;
       --postgres-user|--db-user)
@@ -87,12 +94,104 @@ parse_args() {
 
 choose_mode() {
   if [[ -n "$MODE" ]]; then
+    normalize_mode
     return
   fi
   echo "Choose setup mode:"
   echo "  1) host   - Java/Node/PostgreSQL run on this Linux host; use an existing Tdarr server"
   echo "  2) docker - Docker Compose runs API, UI, PostgreSQL, and managed Tdarr"
   read -r -p "Mode [host/docker]: " MODE
+  MODE="${MODE:-host}"
+  normalize_mode
+}
+
+normalize_mode() {
+  case "${MODE,,}" in
+    1|host|native|host-native) MODE="host" ;;
+    2|docker|compose) MODE="docker" ;;
+  esac
+}
+
+is_interactive() {
+  [[ -t 0 ]]
+}
+
+prompt_value() {
+  local prompt="$1"
+  local default="$2"
+  local answer=""
+  if is_interactive; then
+    read -r -p "$prompt [$default]: " answer
+  fi
+  printf '%s' "${answer:-$default}"
+}
+
+prompt_secret() {
+  local prompt="$1"
+  local default="$2"
+  local answer=""
+  if is_interactive; then
+    read -r -s -p "$prompt [press Enter for default]: " answer
+    echo >&2
+  fi
+  printf '%s' "${answer:-$default}"
+}
+
+normalize_postgres_setup() {
+  case "${POSTGRES_SETUP,,}" in
+    2|existing|external|remote) POSTGRES_SETUP="existing" ;;
+    *) POSTGRES_SETUP="install" ;;
+  esac
+}
+
+normalize_tdarr_setup() {
+  case "${TDARR_SETUP,,}" in
+    2|managed|install|local|docker) TDARR_SETUP="managed"; TDARR_MODE="managed" ;;
+    *) TDARR_SETUP="existing"; TDARR_MODE="existing" ;;
+  esac
+}
+
+choose_host_services() {
+  if [[ -z "$POSTGRES_SETUP" ]]; then
+    if [[ -n "$POSTGRES_URL" ]]; then
+      POSTGRES_SETUP="existing"
+    elif is_interactive; then
+      echo
+      echo "PostgreSQL setup:"
+      echo "  1) install  - install/start local PostgreSQL and create the Archive Sentinel database"
+      echo "  2) existing - use an existing PostgreSQL database"
+      POSTGRES_SETUP="$(prompt_value "PostgreSQL mode [install/existing]" "install")"
+    else
+      POSTGRES_SETUP="install"
+    fi
+  fi
+  normalize_postgres_setup
+  if [[ "$POSTGRES_SETUP" == "existing" ]]; then
+    POSTGRES_URL="${POSTGRES_URL:-$(prompt_value "PostgreSQL JDBC URL" "jdbc:postgresql://localhost:5432/$DB_NAME")}"
+    DB_USER="$(prompt_value "PostgreSQL username" "$DB_USER")"
+    DB_PASSWORD="$(prompt_secret "PostgreSQL password" "$DB_PASSWORD")"
+  else
+    POSTGRES_URL=""
+  fi
+
+  if [[ -z "$TDARR_SETUP" ]]; then
+    TDARR_SETUP="$TDARR_MODE"
+  fi
+  if [[ -z "$TDARR_SETUP" || "$TDARR_SETUP" == "existing" && "$TDARR_URL" == "http://localhost:8266" ]]; then
+    if is_interactive; then
+      echo
+      echo "Tdarr setup:"
+      echo "  1) existing - point Archive Sentinel at an existing Tdarr server URL"
+      echo "  2) managed  - install/start managed Tdarr with Docker Compose"
+      TDARR_SETUP="$(prompt_value "Tdarr mode [existing/managed]" "$TDARR_SETUP")"
+    fi
+  fi
+  normalize_tdarr_setup
+  if [[ "$TDARR_SETUP" == "existing" ]]; then
+    TDARR_URL="$(prompt_value "Existing Tdarr server URL" "$TDARR_URL")"
+  else
+    TDARR_URL="http://localhost:8266"
+  fi
 }
 
 need_command() {
@@ -185,13 +284,15 @@ setup_database() {
     echo "Skipping local database creation because POSTGRES_URL was provided."
     return
   fi
+  local escaped_password
+  escaped_password="$(printf "%s" "$DB_PASSWORD" | sed "s/'/''/g")"
   sudo -u postgres psql <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
-    CREATE ROLE $DB_USER LOGIN PASSWORD '$DB_PASSWORD';
+    CREATE ROLE $DB_USER LOGIN PASSWORD '$escaped_password';
   ELSE
-    ALTER ROLE $DB_USER WITH LOGIN PASSWORD '$DB_PASSWORD';
+    ALTER ROLE $DB_USER WITH LOGIN PASSWORD '$escaped_password';
   END IF;
 END
 \$\$;
@@ -387,6 +488,7 @@ main() {
   choose_mode
   case "${MODE,,}" in
     host|native|host-native)
+      choose_host_services
       install_host_packages
       start_postgres
       setup_database

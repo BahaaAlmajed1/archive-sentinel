@@ -75,7 +75,7 @@ The script also walks you through the two external services Archive Sentinel nee
 1. PostgreSQL:
    Choose `install` to install/start local PostgreSQL and create the `archive_sentinel` database/user, or choose `existing` to point Archive Sentinel at a PostgreSQL database you already manage.
 2. Tdarr:
-   Choose `existing` to enter the URL of an already-running Tdarr server, or choose `install` to download the native Tdarr updater, run it, and optionally start a local Tdarr server and node.
+   Choose `existing` to enter the URL of an already-running Tdarr server, or choose `managed` to install/start a local Tdarr server and node with Docker Compose.
 
 When the script finishes, it writes `.env.local`, builds the backend and frontend, and starts both processes in the background. Logs are written under:
 
@@ -109,35 +109,20 @@ You can skip the prompt with:
 TDARR_SETUP=existing TDARR_URL=http://192.168.1.50:8266 bash scripts/setup-linux.sh host
 ```
 
-### Installing Tdarr From The Linux Script
+### Managed Tdarr From The Linux Script
 
-If you choose `install`, the script asks for:
-
-- The Tdarr install directory, defaulting to `runtime/tools/tdarr`.
-- The Tdarr updater download URL, defaulting to the Linux updater URL from the official Tdarr native install docs.
-- The Tdarr server URL Archive Sentinel should use, defaulting to `http://localhost:8266`.
-- Whether to start the Tdarr server and node after installation.
-
-If Tdarr changes the native package URL, paste the current `linux_x64` or `linux_arm64` updater link from the official Tdarr native install docs when the script asks for the download URL.
-
-The script downloads and unzips the updater, runs `Tdarr_Updater`, then starts:
+If you choose `managed`, the script starts a local Tdarr server and node through Docker Compose. It creates the managed Tdarr compose file under:
 
 ```text
-Tdarr_Server/Tdarr_Server
-Tdarr_Node/Tdarr_Node
+runtime/managed-tdarr
 ```
 
-Tdarr logs are written to:
+The managed Tdarr API is `http://localhost:8266`, and the managed Tdarr UI is `http://localhost:8265`.
 
-```text
-runtime/logs/tdarr-server.log
-runtime/logs/tdarr-node.log
-```
-
-You can run the install path without prompts:
+You can run the managed path without prompts:
 
 ```bash
-TDARR_SETUP=install TDARR_INSTALL_DIR=/opt/tdarr TDARR_URL=http://localhost:8266 bash scripts/setup-linux.sh host
+TDARR_SETUP=managed bash scripts/setup-linux.sh host
 ```
 
 ### Existing PostgreSQL On Linux
@@ -154,7 +139,7 @@ You can skip the prompt with:
 
 ```bash
 POSTGRES_SETUP=existing \
-SPRING_DATASOURCE_URL=jdbc:postgresql://db.example.test:5432/archive_sentinel \
+POSTGRES_URL=jdbc:postgresql://db.example.test:5432/archive_sentinel \
 DB_USER=archive_sentinel \
 DB_PASSWORD=archive_sentinel \
 bash scripts/setup-linux.sh host
@@ -170,26 +155,27 @@ UI_PORT=5173
 
 POSTGRES_SETUP=install
 POSTGRES_SETUP=existing
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/archive_sentinel
-DB_HOST=localhost
-DB_PORT=5432
+POSTGRES_URL=jdbc:postgresql://localhost:5432/archive_sentinel
 DB_NAME=archive_sentinel
 DB_USER=archive_sentinel
 DB_PASSWORD=archive_sentinel
 
 TDARR_SETUP=existing
-TDARR_SETUP=install
+TDARR_SETUP=managed
 TDARR_URL=http://localhost:8266
-TDARR_INSTALL_DIR=/opt/tdarr
-TDARR_DOWNLOAD_URL=https://storage.tdarr.io/versions/2.17.01/linux_x64/Tdarr_Updater.zip
-START_TDARR=yes
+TDARR_GPU_WORKERS=1
+TDARR_CPU_WORKERS=0
+
+INSTALL_PACKAGES=auto
+INSTALL_PACKAGES=skip
+VITE_DEV_PROXY_ORIGIN=http://localhost:5173
 ```
 
 For example, this uses an existing PostgreSQL database and an existing Tdarr server:
 
 ```bash
 POSTGRES_SETUP=existing \
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/archive_sentinel \
+POSTGRES_URL=jdbc:postgresql://localhost:5432/archive_sentinel \
 DB_USER=archive_sentinel \
 DB_PASSWORD=archive_sentinel \
 TDARR_SETUP=existing \
