@@ -64,10 +64,16 @@ Change the password from Settings after your first login.
 
 For a new Linux host-native install, start here. From the repository root:
 
+**Install git**
 ```bash
-bash scripts/setup-linux.sh host
+sudo apt install git
+git clone https://github.com/BahaaAlmajed1/archive-sentinel.git
 ```
 
+**Run installation script**
+```bash
+sudo bash scripts/setup-linux.sh host
+```
 The script installs common host packages with `apt`, `dnf`, `yum`, or `pacman`: Java 21, Node.js/npm, FFmpeg, Zenity, curl, and unzip. It only installs PostgreSQL packages if you choose the local PostgreSQL option.
 
 The script also walks you through the two external services Archive Sentinel needs:
@@ -83,7 +89,7 @@ When the script finishes, it writes `.env.local`, builds the backend and fronten
 runtime/logs
 ```
 
-Open `http://localhost:5173` and sign in with the default login.
+**Open `http://localhost:5173` and sign in with the default login.**
 
 ### Existing Tdarr On Linux
 
