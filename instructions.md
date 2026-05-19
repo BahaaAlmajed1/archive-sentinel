@@ -22,13 +22,22 @@ Install prerequisites:
 
 ### Linux assisted setup
 
-From the repository root on Linux:
+From a fresh Linux server:
+
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/BahaaAlmajed1/archive-sentinel.git
+cd archive-sentinel
+```
+
+Then run the one-command host setup from the repository root:
 
 ```bash
 bash scripts/setup-linux.sh host
 ```
 
-The host-native script installs Java 21, Node.js/npm, PostgreSQL, FFmpeg, Zenity, and curl using `apt`, `dnf`, `yum`, or `pacman` when available. It starts PostgreSQL, creates the `archive_sentinel` database and user, writes `.env.local`, builds the backend and frontend, then starts both processes in the background. Logs are written under `runtime/logs`.
+The host-native script installs Java 21, Node.js 22/npm, PostgreSQL, FFmpeg, Zenity, and curl using `apt`, `dnf`, `yum`, or `pacman` when available. It starts PostgreSQL, creates the `archive_sentinel` database and user, writes `.env.local`, builds the backend and frontend, then starts both processes in the background. Logs are written under `runtime/logs`.
 
 Useful environment overrides:
 
@@ -37,7 +46,19 @@ API_PORT=8080 UI_PORT=5173 TDARR_URL=http://localhost:8266 bash scripts/setup-li
 DB_NAME=archive_sentinel DB_USER=archive_sentinel DB_PASSWORD=archive_sentinel bash scripts/setup-linux.sh host
 ```
 
-Host-native mode still expects Tdarr server/node to be running natively or elsewhere at `TDARR_URL`. If you want the script to bring up managed Tdarr too, use Docker mode instead.
+Host-native mode still expects a Tdarr server and at least one Tdarr node to be running natively or elsewhere at `TDARR_URL`. Confirm Tdarr before a real optimization run:
+
+```bash
+curl http://localhost:8266/api/v2/status
+```
+
+If you want the script to bring up managed Tdarr too, use Docker mode instead.
+
+The default host-native transcode arguments target NVIDIA NVENC. On a CPU-only Linux server, set Settings -> Tdarr encoding to HEVC CPU arguments before starting production work and leave `Codecs to skip` as `hevc`:
+
+```text
+,-map 0 -map_metadata 0 -map_chapters 0 -c:v libx265 -preset ultrafast -crf 32 -c:a aac -b:a 96k -c:s copy
+```
 
 If Tdarr is installed natively with the updater, Archive Sentinel can auto-detect Tdarr's bundled ffmpeg and ffprobe binaries, so separate FFmpeg installation is optional.
 

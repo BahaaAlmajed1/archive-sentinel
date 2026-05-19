@@ -134,15 +134,38 @@ runtime/staging
 Add your real media folders as storage roots from the dashboard. Each root can optionally override its optimized-output and archive destinations; when no override is set, parallel mode writes under the global optimized/archive roots plus a namespace based on the storage root path, for example `runtime/optimized/CLIPS/Game Name/...`.
 
 ### Linux one-command setup
+Install Git, clone the repo, enter it, then run the helper from the repository root:
 
-On Linux, the helper script can set up either the host-native app path or the full Docker Compose stack:
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/BahaaAlmajed1/archive-sentinel.git
+cd archive-sentinel
+```
+
+The helper can set up either the host-native app path or the full Docker Compose stack:
 
 ```bash
 bash scripts/setup-linux.sh host
 bash scripts/setup-linux.sh docker
 ```
 
-Host mode installs Java 21, Node.js, PostgreSQL, FFmpeg, and Zenity where the package manager supports it, creates the `archive_sentinel` database/user, builds the app, and starts backend/frontend processes with logs in `runtime/logs`. Docker mode builds and starts PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node through Compose.
+Host mode installs Java 21, Node.js 22, PostgreSQL, FFmpeg, and Zenity where the package manager supports it, creates the `archive_sentinel` database/user, builds the app, and starts backend/frontend processes with logs in `runtime/logs`. It also writes `.env.local` with the backend port, UI proxy target, Tdarr URL, and LAN-safe CORS origins so `http://<server-ip>:5173` works from another machine on the same network.
+
+Host mode expects an existing Tdarr server and at least one Tdarr node at `TDARR_URL`:
+
+```bash
+TDARR_URL=http://localhost:8266 bash scripts/setup-linux.sh host
+curl http://localhost:8266/api/v2/status
+```
+
+The default host encoding arguments target NVIDIA NVENC. On a CPU-only Linux server, open Settings before starting real jobs and use HEVC CPU arguments while keeping `Codecs to skip` as `hevc`:
+
+```text
+,-map 0 -map_metadata 0 -map_chapters 0 -c:v libx265 -preset ultrafast -crf 32 -c:a aac -b:a 96k -c:s copy
+```
+
+Docker mode builds and starts PostgreSQL, API, UI, managed Tdarr server, and managed Tdarr node through Compose.
 
 ### 5. First login
 

@@ -404,7 +404,11 @@ class ScanService(
             val resolvedPolicy = policyResolutionService.resolve(Paths.get(media.originalPath), settings, policies)
             val override = overrides[media.storageRootId]
             val root = roots[media.storageRootId]
-            val defaultSelected = !media.everOptimized && media.status == MediaStatus.ANALYZED
+            val defaultSelected = !media.everOptimized && media.status !in setOf(
+                MediaStatus.ARCHIVED,
+                MediaStatus.AWAITING_DELETION_APPROVAL,
+                MediaStatus.DELETED,
+            )
             precheckRunItemRepository.save(
                 PrecheckRunItem(
                     precheckRunId = precheck.id,

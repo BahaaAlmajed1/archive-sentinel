@@ -9,6 +9,7 @@ DB_NAME="${DB_NAME:-archive_sentinel}"
 DB_USER="${DB_USER:-archive_sentinel}"
 DB_PASSWORD="${DB_PASSWORD:-archive_sentinel}"
 TDARR_URL="${TDARR_URL:-http://localhost:8266}"
+VITE_DEV_PROXY_ORIGIN="${VITE_DEV_PROXY_ORIGIN:-http://localhost:$UI_PORT}"
 
 usage() {
   cat <<USAGE
@@ -25,6 +26,7 @@ Environment overrides:
   DB_USER=archive_sentinel
   DB_PASSWORD=archive_sentinel
   TDARR_URL=http://localhost:8266
+  VITE_DEV_PROXY_ORIGIN=http://localhost:5173
 USAGE
 }
 
@@ -45,7 +47,9 @@ need_command() {
 install_host_packages() {
   if need_command apt-get; then
     sudo apt-get update
-    sudo apt-get install -y openjdk-21-jdk nodejs npm postgresql postgresql-contrib ffmpeg zenity curl
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl gnupg
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-21-jdk nodejs postgresql postgresql-contrib ffmpeg zenity
   elif need_command dnf; then
     sudo dnf install -y java-21-openjdk-devel nodejs npm postgresql-server postgresql-contrib ffmpeg zenity curl
     sudo postgresql-setup --initdb || true
@@ -87,6 +91,14 @@ SQL
 }
 
 write_env() {
+  local host_ip="${HOST_IP:-}"
+  if [[ -z "$host_ip" ]] && need_command hostname; then
+    host_ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  local allowed_origins="http://localhost:$UI_PORT,http://127.0.0.1:$UI_PORT"
+  if [[ -n "$host_ip" ]]; then
+    allowed_origins="$allowed_origins,http://$host_ip:$UI_PORT"
+  fi
   cat > "$ROOT_DIR/.env.local" <<ENV
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/$DB_NAME
 SPRING_DATASOURCE_USERNAME=$DB_USER
@@ -94,28 +106,39 @@ SPRING_DATASOURCE_PASSWORD=$DB_PASSWORD
 APP_EXECUTION_MODE=HOST_NATIVE
 APP_TDARR_MODE=EXISTING
 APP_TDARR_BASE_URL=$TDARR_URL
-APP_ALLOWED_ORIGIN=http://localhost:$UI_PORT
+APP_ALLOWED_ORIGINS=$allowed_origins
 SERVER_PORT=$API_PORT
 VITE_API_PROXY_TARGET=http://localhost:$API_PORT
+VITE_DEV_PROXY_ORIGIN=$VITE_DEV_PROXY_ORIGIN
 ENV
 }
 
 build_host_app() {
+  chmod +x "$ROOT_DIR/backend/gradlew"
   (cd "$ROOT_DIR/backend" && ./gradlew bootJar)
-  (cd "$ROOT_DIR/frontend" && npm install && npm run build)
+  (cd "$ROOT_DIR/frontend" && npm ci && npm run build)
 }
 
 start_host_app() {
   mkdir -p "$ROOT_DIR/runtime/logs"
+  chmod +x "$ROOT_DIR/backend/gradlew"
   set -a
   # shellcheck disable=SC1091
   source "$ROOT_DIR/.env.local"
   set +a
   nohup "$ROOT_DIR/backend/gradlew" -p "$ROOT_DIR/backend" bootRun > "$ROOT_DIR/runtime/logs/backend.log" 2>&1 &
   nohup npm --prefix "$ROOT_DIR/frontend" run dev -- --host 0.0.0.0 --port "$UI_PORT" > "$ROOT_DIR/runtime/logs/frontend.log" 2>&1 &
+  local host_ip="${HOST_IP:-}"
+  if [[ -z "$host_ip" ]] && need_command hostname; then
+    host_ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  fi
   echo "Archive Sentinel is starting."
   echo "UI:  http://localhost:$UI_PORT"
+  if [[ -n "$host_ip" ]]; then
+    echo "LAN UI: http://$host_ip:$UI_PORT"
+  fi
   echo "API: http://localhost:$API_PORT"
+  echo "Tdarr: $TDARR_URL"
   echo "Logs: $ROOT_DIR/runtime/logs"
 }
 

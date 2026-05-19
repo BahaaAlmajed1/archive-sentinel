@@ -187,7 +187,7 @@ class PolicyResolutionService(
         resolve(path, defaults, policies())
 
     fun resolve(path: Path, defaults: AppSettings, policies: List<PolicyTarget>): ResolvedPolicy {
-        val normalizedPath = path.normalize()
+        val normalizedPath = appPathService.resolve(path.toString())
         val matching = policies
             .filter { policy -> matches(policy, normalizedPath) }
             .maxByOrNull { appPathService.resolve(it.path).nameCount }
